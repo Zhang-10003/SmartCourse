@@ -3,6 +3,9 @@
         <view class="bg-decoration-top"></view>
         <view class="bg-decoration-bottom"></view>
 
+		<view class="app-logo">
+		    <text class="app-name">课程助手</text>
+		</view>
         <view class="login-card">
             <view class="header-section">
                 <text class="main-title">欢迎登录</text>
@@ -88,8 +91,26 @@ $primary-color: #2979ff;
 $bg-light: #f0f3f8;
 $text-main: #1d1e2c;
 $text-grey: #94a3b8;
+.app-logo {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 80rpx; /* 与下方登录卡片的间距 */
+    z-index: 10;
+}
 
+.app-name {
+    font-size: 52rpx;        /* 字体大小 */
+    font-weight: 900;       /* 加粗 */
+    color: #1d1e2c;         /* 深色文字，也可改为 $primary-color 变成蓝色 */
+    letter-spacing: 6rpx;   /* 字间距，增加高级感 */
+    text-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.05); /* 微弱阴影 */
+}
 .page-wrapper {
+	display: flex;
+	flex-direction: column; /* 改为纵向排列，让 logo 在卡片上方 */
+	justify-content: center;
+	align-items: center;
     position: relative;
     display: flex;
     justify-content: center;
