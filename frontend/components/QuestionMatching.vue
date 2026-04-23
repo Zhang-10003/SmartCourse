@@ -1,5 +1,8 @@
 <template>
   <div class="match-ui-container">
+	<div v-if="question.title" class="question-title">
+	   {{ question.title }}
+	</div>
     <div class="match-grid">
       <div class="match-column">
         <div 
@@ -143,11 +146,22 @@ export default {
 </script>
 
 <style scoped>
+.question-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+  text-align: left;
+  width: 100%;
+  max-width: 800px;
+}	
+
 .match-ui-container {
   padding: 20px;
   width: 100%;
   display: flex;
-  justify-content: center;
+  flex-direction: column; /* 确保标题和网格纵向排列 */
+  align-items: center;    /* 居中对齐 */
   box-sizing: border-box;
 }
 
