@@ -1,8 +1,15 @@
 <template>
   <div class="match-ui-container">
-	<div v-if="question.title" class="question-title">
-	   {{ question.title }}
-	</div>
+    <div v-if="question.title" class="question-title-container">
+      <div class="tag-row">
+        <span class="tag">匹配题</span>
+      </div>
+      <div class="title-row">
+        <span class="question-index">{{ index }}.</span>
+        <span class="question-text">{{ question.title }}</span>
+      </div>
+    </div>
+    
     <div class="match-grid">
       <div class="match-column">
         <div 
@@ -61,6 +68,11 @@
 export default {
   name: 'QuestionMatching',
   props: {
+    // 修改点：新增 index 属性，用于接收外部传入的题号
+    index: {
+      type: [Number, String],
+      default: 1
+    },
     question: {
       type: Object,
       required: true,
@@ -90,7 +102,6 @@ export default {
       return item.label || '';
     },
     selectLeft(index) {
-      // 如果点的是已经选中的，则取消选中
       this.selectedLeft = (this.selectedLeft === index) ? null : index;
       this.checkMatch();
     },
@@ -100,16 +111,13 @@ export default {
     },
     checkMatch() {
       if (this.selectedLeft !== null && this.selectedRight !== null) {
-        // 1. 先移除包含当前选中项的任何旧匹配（保持一对一）
         this.completedMatches = this.completedMatches.filter(
           m => m.l !== this.selectedLeft && m.r !== this.selectedRight
         );
     
-        // 2. 添加新匹配
         this.completedMatches.push({
           l: this.selectedLeft,
           r: this.selectedRight,
-          // 核心修复：基于左侧索引取色，确保同一行的初始色调一致，且不受数组长度变化影响
           colorIndex: this.selectedLeft % this.colorPalette.length 
         });
     
@@ -146,22 +154,54 @@ export default {
 </script>
 
 <style scoped>
-.question-title {
-  font-size: 17px;
-  font-weight: 600;
-  color: #333;
-  margin-bottom: 20px;
+/* 修改点：精细化标题布局，区分题号和内容样式 */
+.question-title-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
   text-align: left;
   width: 100%;
   max-width: 800px;
-}	
+}
+
+.tag-row {
+  display: flex;
+}
+
+.tag {
+  background-color: #e6f4ff;
+  color: #1677ff;
+  font-size: 13px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.title-row {
+  display: flex;
+  align-items: flex-start;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+  line-height: 1.5;
+}
+
+.question-index {
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.question-text {
+  word-break: break-all;
+}
 
 .match-ui-container {
   padding: 20px;
   width: 100%;
   display: flex;
-  flex-direction: column; /* 确保标题和网格纵向排列 */
-  align-items: center;    /* 居中对齐 */
+  flex-direction: column;
+  align-items: center;
   box-sizing: border-box;
 }
 
@@ -185,7 +225,7 @@ export default {
   align-items: center;
   justify-content: space-between;
   padding: 16px 20px;
-  min-height: 60px; /* 确保卡片有足够高度 */
+  min-height: 60px;
   background: #ffffff;
   border: 1.5px solid #e8e8e8;
   border-radius: 14px;
@@ -200,9 +240,8 @@ export default {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-/* 选中状态 */
 .match-card.is-active {
-  border: 1.5px dashed #666; /* 改为灰色虚线，表示“准备中” */
+  border: 1.5px dashed #666;
   background-color: #fafafa;
   transform: translateY(-2px);
 }
@@ -220,7 +259,7 @@ export default {
   color: #333;
   font-weight: 500;
   line-height: 1.4;
-  word-break: break-word; /* 允许长文本换行 */
+  word-break: break-word;
   text-align: left;
 }
 
@@ -244,7 +283,6 @@ export default {
   margin-bottom: 2px;
 }
 
-/* 响应式适配 */
 @media (max-width: 600px) {
   .match-grid { gap: 12px; }
   .match-card { padding: 12px 14px; min-height: 50px; }
