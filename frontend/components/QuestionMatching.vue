@@ -181,7 +181,7 @@ export default {
 .title-row {
   display: flex;
   align-items: flex-start;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: #333;
   line-height: 1.5;
