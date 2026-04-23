@@ -18,7 +18,7 @@
           class="match-card"
           :class="{ 
             'is-active': selectedLeft === index,
-            'is-matched': isLeftMatched(index) 
+            'is-matched': isLeftMatched(index) && isPairCorrect(index, 'left') 
           }"
           :style="getMatchedStyle(index, 'left')"
           @click="selectLeft(index)"
@@ -28,7 +28,7 @@
           </div>
           <div 
             class="status-box" 
-            v-if="isLeftMatched(index)" 
+            v-if="isLeftMatched(index) && isPairCorrect(index, 'left')" 
             :style="getIconStyle(index, 'left')"
           >
             <div class="checkmark"></div>
@@ -43,7 +43,7 @@
           class="match-card"
           :class="{ 
             'is-active': selectedRight === index,
-            'is-matched': isRightMatched(index)
+            'is-matched': isRightMatched(index) && isPairCorrect(index, 'right')
           }"
           :style="getMatchedStyle(index, 'right')"
           @click="selectRight(index)"
@@ -53,7 +53,7 @@
           </div>
           <div 
             class="status-box" 
-            v-if="isRightMatched(index)" 
+            v-if="isRightMatched(index) && isPairCorrect(index, 'right')" 
             :style="getIconStyle(index, 'right')"
           >
             <div class="checkmark"></div>
@@ -68,10 +68,19 @@
 export default {
   name: 'QuestionMatching',
   props: {
-    // 修改点：新增 index 属性，用于接收外部传入的题号
     index: {
       type: [Number, String],
       default: 1
+    },
+    // 新增：状态 'typing' (答题中) 或 'result' (结果展示)
+    status: {
+      type: String,
+      default: 'typing'
+    },
+    // 新增：正确答案数组，例如 [{l: 0, r: 1}, {l: 1, r: 0}]
+    correctAnswers: {
+      type: Array,
+      default: () => []
     },
     question: {
       type: Object,
@@ -102,10 +111,12 @@ export default {
       return item.label || '';
     },
     selectLeft(index) {
+      if (this.status === 'result') return;
       this.selectedLeft = (this.selectedLeft === index) ? null : index;
       this.checkMatch();
     },
     selectRight(index) {
+      if (this.status === 'result') return;
       this.selectedRight = (this.selectedRight === index) ? null : index;
       this.checkMatch();
     },
@@ -126,9 +137,20 @@ export default {
         this.selectedRight = null;
       }
     },
+    // 判断当前配对是否正确
+    isPairCorrect(index, side) {
+      if (this.status !== 'result') return true; // 答题模式默认显示颜色
+      const match = this.completedMatches.find(m => side === 'left' ? m.l === index : m.r === index);
+      if (!match) return false;
+      return this.correctAnswers.some(ans => ans.l === match.l && ans.r === match.r);
+    },
     getMatchedStyle(index, side) {
       const match = this.completedMatches.find(m => side === 'left' ? m.l === index : m.r === index);
       if (match) {
+        // 如果是结果模式且配对错误，则不显示彩色
+        if (this.status === 'result' && !this.isPairCorrect(index, side)) {
+          return {};
+        }
         const color = this.colorPalette[match.colorIndex];
         return {
           backgroundColor: color.bg,
@@ -141,7 +163,7 @@ export default {
     },
     getIconStyle(index, side) {
       const match = this.completedMatches.find(m => side === 'left' ? m.l === index : m.r === index);
-      return match ? { backgroundColor: this.colorPalette[match.colorIndex].main } : {};
+      return (match && this.isPairCorrect(index, side)) ? { backgroundColor: this.colorPalette[match.colorIndex].main } : {};
     },
     isLeftMatched(index) {
       return this.completedMatches.some(m => m.l === index);
@@ -154,7 +176,6 @@ export default {
 </script>
 
 <style scoped>
-/* 修改点：精细化标题布局，区分题号和内容样式 */
 .question-title-container {
   display: flex;
   flex-direction: column;
@@ -235,7 +256,7 @@ export default {
   box-sizing: border-box;
 }
 
-.match-card:hover {
+.match-card:hover:not([disabled]) {
   border-color: #49b972;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
