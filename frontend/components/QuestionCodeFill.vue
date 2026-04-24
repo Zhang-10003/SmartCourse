@@ -1,22 +1,32 @@
 <template>
-  <div class="q-container">
-    <div class="q-title" v-if="question.title" v-html="question.title"></div>
+  <div class="match-ui-container">
+    <div v-if="data.question" class="question-title-container">
+      <div class="tag-row">
+        <span class="tag">代码填空题</span>
+      </div>
+      <div class="title-row">
+        <span class="question-index">{{ data.index }}.</span>
+        <span class="question-text" v-html="data.question.title"></span>
+      </div>
+    </div>
 
-    <div class="code-editor">
-      <div v-for="(line, idx) in parsedLines" :key="idx" class="line-wrapper">
-        <div v-if="line.type === 'input'" class="input-block">
-          <span class="input-label">{{ line.label }} = </span>
-          <input
-            v-model="userValues[line.index]"
-            class="code-input"
-            placeholder="????"
-          />
-        </div>
+    <div class="code-editor-container">
+      <div class="code-editor">
+        <div v-for="(line, idx) in parsedLines" :key="idx" class="line-wrapper">
+          <div v-if="line.isInput" class="input-block">
+            <span class="input-label" v-html="line.prefix"></span>
+            <input
+              v-model="data.question.fields[line.fieldIndex].value"
+              class="code-input"
+              placeholder="????"
+            />
+          </div>
 
-        <div v-else class="code-line">
-          <span v-for="(token, tIdx) in line.tokens" :key="tIdx" :class="token.type">
-            {{ token.text }}
-          </span>
+          <div v-else class="code-line">
+            <span v-for="(token, tIdx) in line.tokens" :key="tIdx" :class="token.type">
+              {{ token.text }}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -27,36 +37,34 @@
 export default {
   name: 'QuestionCodeFill',
   props: {
-    question: { type: Object, required: true },
-    value: { type: Array, default: () => [] }
+    // 接收你提供的那种完整数据结构
+    data: {
+      type: Object,
+      required: true,
+      default: () => ({ index: 1, question: { title: '', code: '', fields: [] } })
+    }
   },
   computed: {
-    userValues: {
-      get() { return this.value },
-      set(val) { this.$emit('input', val) }
-    },
     parsedLines() {
-      if (!this.question.code) return [];
-      const lines = this.question.code.split('\n');
-      let fieldIdx = 0;
+      if (!this.data.question || !this.data.question.code) return [];
+      const lines = this.data.question.code.split('\n');
+      let fieldCounter = 0;
 
       return lines.map(rawLine => {
-        const trimmed = rawLine.trim();
-
-        // 1. 判断是否为输入框行
-        if (trimmed.match(/^(IP|SP|IP\d+|SP\d+)=\?\?\?\?/)) {
-          const res = {
-            type: 'input',
-            label: this.question.fields[fieldIdx]?.label || trimmed.split('=')[0],
-            index: fieldIdx
+        // 检测是否包含 ????
+        if (rawLine.includes('????')) {
+          const prefix = rawLine.replace('????', '').trim();
+          const currentIdx = fieldCounter;
+          fieldCounter++;
+          return {
+            isInput: true,
+            prefix: prefix, // 例如 "IP1="
+            fieldIndex: currentIdx
           };
-          fieldIdx++;
-          return res;
         }
-
-        // 2. 词法解析代码行
+        // 普通代码行进行词法解析
         return {
-          type: 'code',
+          isInput: false,
           tokens: this.tokenize(rawLine)
         };
       });
@@ -65,19 +73,16 @@ export default {
   methods: {
     tokenize(text) {
       const tokens = [];
-      // 匹配：注释、十六进制数(0100H)、寄存器、指令、标号、符号
-      const regex = /(;.*)|(\b[0-9A-Fa-f]+[Hh]\b)|(\b(mov|call|ret|inc|dec|add|int|end|start)\b)|(\b(ax|bx|cx|dx|ah|al|sp|ip)\b)|([a-zA-Z0-9_]+:)|(\s+)|(.)/gi;
-      
+      const regex = /(;.*)|(\b[0-9A-Fa-f]+[Hh]\b)|(\b(mov|call|ret|inc|dec|add|int|end|push|pop|start)\b)|(\b(ax|bx|cx|dx|ds|es|ss|sp|ip)\b)|([a-zA-Z0-9_]+:)|(\s+)|(.)/gi;
       let match;
       while ((match = regex.exec(text)) !== null) {
         let type = 'hl-default';
-        if (match[1]) type = 'hl-comment';      // 注释
-        else if (match[2]) type = 'hl-number';  // 0100H
-        else if (match[3]) type = 'hl-keyword'; // mov/call
-        else if (match[5]) type = 'hl-reg';     // ax/sp
-        else if (match[7]) type = 'hl-label';   // start:
-        else if (match[8]) type = 'hl-space';   // 空格
-        
+        if (match[1]) type = 'hl-comment';
+        else if (match[2]) type = 'hl-number';
+        else if (match[3]) type = 'hl-keyword';
+        else if (match[5]) type = 'hl-reg';
+        else if (match[7]) type = 'hl-label';
+        else if (match[8]) type = 'hl-space';
         tokens.push({ text: match[0], type });
       }
       return tokens;
@@ -87,53 +92,86 @@ export default {
 </script>
 
 <style scoped>
-/* 容器 */
-.q-container { padding: 20px; background: #fff; }
-.q-title { margin-bottom: 15px; font-size: 16px; line-height: 1.6; color: #333; }
-
-/* 代码编辑器风格 */
-.code-editor {
-  background-color: #f8f9fa;
-  border: 1px solid #e1e4e8;
-  border-radius: 6px;
-  padding: 16px;
-  font-family: "Consolas", "Monaco", monospace;
-  font-size: 14px;
-  line-height: 1.5;
+/* 保持你要求的 UI 风格 */
+.match-ui-container {
+  padding: 20px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  box-sizing: border-box;
 }
 
-.line-wrapper { min-height: 24px; white-space: pre; }
+.question-title-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+  width: 100%;
+  max-width: 800px;
+}
 
-/* --- 强制高亮颜色 --- */
-.hl-keyword { color: #d73a4a; font-weight: bold; } /* 指令：红色 */
-.hl-reg { color: #005cc5; }                        /* 寄存器：蓝色 */
-.hl-number { color: #032f62; }                     /* 数值：深蓝色 */
-.hl-label { color: #6f42c1; }                      /* 标号：紫色 */
-.hl-comment { color: #6a737d; font-style: italic; } /* 注释：灰色 */
-.hl-default { color: #24292e; }                    /* 符号(逗号等)：黑色 */
+.tag {
+  background-color: #e6f4ff;
+  color: #1677ff;
+  font-size: 13px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  font-weight: 500;
+}
 
-/* --- 输入框行样式 (匹配截图) --- */
+.title-row {
+  display: flex;
+  font-size: 17px;
+  font-weight: 600;
+  color: #333;
+}
+
+.code-editor-container {
+  width: 100%;
+  max-width: 800px;
+}
+
+.code-editor {
+  background-color: #f8f9fa;
+  border: 1.5px solid #e8e8e8;
+  border-radius: 14px;
+  padding: 24px;
+  font-family: "Consolas", monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* 高亮配色 */
+.hl-keyword { color: #d73a4a; font-weight: bold; }
+.hl-reg { color: #005cc5; }
+.hl-number { color: #032f62; }
+.hl-label { color: #6f42c1; }
+.hl-comment { color: #6a737d; font-style: italic; }
+.hl-default { color: #333; }
+
+/* 输入框行样式 */
 .input-block {
   display: inline-flex;
   align-items: center;
-  background-color: #ebf5ff;
-  border: 1px solid #cce5ff;
+  background-color: #f0f7ff;
+  border: 1px solid #cce4ff;
   border-radius: 8px;
-  padding: 6px 15px;
-  margin: 10px 0 10px 20px;
+  padding: 4px 12px;
+  margin: 6px 0 6px 20px;
 }
+
 .input-label {
-  color: #0066cc;
+  color: #1677ff;
   font-weight: bold;
-  margin-right: 12px;
-  font-family: sans-serif;
+  margin-right: 8px;
 }
+
 .code-input {
-  width: 90px;
+  width: 80px;
   padding: 4px 8px;
   border: 1px solid #b8daff;
   border-radius: 4px;
   outline: none;
-  text-align: center;
 }
 </style>
