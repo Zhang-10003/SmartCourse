@@ -40,11 +40,13 @@ export default {
     disabled: { type: Boolean, default: false },
     status: { type: String, default: "typing" },
     correctAnswer: { type: Array, default: () => [] },
-    value: { type: Array, default: () => [] }
+    // 1. 修改这里：Vue 3 默认 prop 名是 modelValue
+    modelValue: { type: Array, default: () => [] }
   },
   computed: {
     selectedOptions() {
-      return this.value
+      // 2. 修改这里：指向 modelValue
+      return this.modelValue
     }
   },
   methods: {
@@ -63,7 +65,9 @@ export default {
           newSelected.push(index);
         }
       }
-      this.$emit("input", newSelected);
+      // 3. 修改这里：触发 Vue 3 的更新事件
+      this.$emit("update:modelValue", newSelected);
+      // 如果父组件还需要这个自定义事件，可以保留
       this.$emit("answer-change", newSelected);
     },
 
@@ -72,14 +76,14 @@ export default {
       const isSelected = this.selectedOptions.includes(idx);
       const isRight = this.correctAnswer.includes(idx);
       const isResult = this.status === "result";
-      const hasAnswer = this.selectedOptions.length > 0;
+      
+      // 注意：这里逻辑修正，判断是否有答案
+      const hasAnswer = this.selectedOptions && this.selectedOptions.length > 0;
 
       if (!isResult) {
-        classes.push(isSelected ? "is-active" : "");
+        if (isSelected) classes.push("is-active");
         return classes;
       }
-
-      if (!hasAnswer) return classes;
 
       if (isSelected) {
         classes.push(isRight ? "my-correct" : "my-wrong");
