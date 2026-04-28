@@ -20,7 +20,7 @@
             <input 
               type="text" 
               v-model="form.username" 
-              placeholder="用户名 / 邮箱" 
+              placeholder="用户名" 
               placeholder-class="input-placeholder"
               @input="onUsernameChange"
             />
@@ -170,7 +170,7 @@ export default {
           if (userType === '1') {
             uni.switchTab({ url: '/pages/student/index' });
           } else {
-            uni.switchTab({ url: '/pages/teacher/index' });
+            uni.redirectTo({ url: '/pages/teacher/index' });
           }
           
         } else {

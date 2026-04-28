@@ -28,18 +28,26 @@
 		      }
 		    },
 			{
-			      "path": "pages/task/AssignmentDetail",
-			      "style": {
-			        "navigationBarTitleText": "作业详情",
-			        "navigationStyle": "custom" 
-			      }
-			    },
-			    {
-			      "path": "pages/task/RankList",
-			      "style": {
-			        "navigationBarTitleText": "排行榜"
-			      }
-			    }
+			  "path": "pages/task/AssignmentDetail",
+			  "style": {
+				"navigationBarTitleText": "作业详情",
+				"navigationStyle": "custom" 
+				}
+			},
+			{
+			  "path": "pages/task/RankList",
+			  "style": {
+				"navigationBarTitleText": "排行榜"
+			  }
+			},
+			{
+			  "path": "pages/teacher/index",
+			  "style": { "navigationStyle": "custom" }
+			},
+			{
+			  "path": "pages/teacher/list",
+			  "style": { "navigationStyle": "custom" }
+			}
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
