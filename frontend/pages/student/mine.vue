@@ -50,7 +50,8 @@ const handleLogout = () => {
     content: '确定要退出当前账号吗？',
     success: (res) => {
       if (res.confirm) {
-        // 退出逻辑
+        uni.removeStorageSync('userInfo');
+        uni.redirectTo({ url: '/pages/login/index' });
       }
     }
   });

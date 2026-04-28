@@ -22,6 +22,7 @@
               v-model="form.username" 
               placeholder="用户名 / 邮箱" 
               placeholder-class="input-placeholder"
+              @input="onUsernameChange"
             />
           </view>
           
@@ -77,6 +78,7 @@ export default {
         password: ''
       },
       rememberChecked: false,
+      originalUsername: '',
       loading: false
     }
   },
@@ -91,6 +93,15 @@ export default {
       console.log('记住我状态切换至:', this.rememberChecked);
     },
     
+    // 处理用户名变化
+    onUsernameChange() {
+      if (this.originalUsername && this.form.username !== this.originalUsername) {
+        this.rememberChecked = false;
+        this.form.password = '';
+        console.log('用户修改了账号，已取消记住我');
+      }
+    },
+    
     // 加载存储的信息
     loadRememberedPassword() {
       try {
@@ -102,6 +113,7 @@ export default {
             this.form.username = remembered.username;
             this.form.password = remembered.password;
             this.rememberChecked = true;
+            this.originalUsername = remembered.username;
             console.log('已成功填充记住的信息');
           } else {
             uni.removeStorageSync('rememberedUser');
