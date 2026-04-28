@@ -63,6 +63,8 @@
 </template>
 
 <script>
+import request from '@/utils/request.js'
+
 export default {
   data() {
     return {
@@ -74,16 +76,50 @@ export default {
     toggleRemember() {
       this.form.remember = !this.form.remember;
     },
-    handleLogin() {
+    async handleLogin() {
       if (!this.form.username || !this.form.password) {
         uni.showToast({ title: '请输入账号密码', icon: 'none' });
         return;
       }
       this.loading = true;
-      setTimeout(() => {
+      
+      try {
+        console.log('开始登录，用户名:', this.form.username);
+        
+        const responseData = await request.post('/auth/login', {
+          username: this.form.username,
+          password: this.form.password
+        });
+        
+        console.log('登录响应数据:', responseData);
+        
+        if (responseData.user_type !== undefined) {
+          const userData = responseData;
+          console.log('登录成功，用户数据:', userData);
+          
+          uni.setStorageSync('userInfo', userData);
+          
+          const userType = String(userData.user_type);
+          console.log('用户类型:', userType);
+          
+          if (userType === '1') {
+            uni.switchTab({ url: '/pages/student/index' });
+          } else if (userType === '0') {
+            uni.switchTab({ url: '/pages/teacher/index' });
+          } else {
+            uni.showToast({ title: '用户类型错误', icon: 'none' });
+            console.log('用户类型值:', userData.user_type);
+          }
+        } else {
+          console.log('登录失败，响应数据:', responseData);
+          const errorMessage = responseData.message || responseData.detail || '登录失败';
+          uni.showToast({ title: errorMessage, icon: 'none' });
+        }
+      } catch (error) {
+        console.error('登录错误:', error);
+      } finally {
         this.loading = false;
-        uni.showToast({ title: '登录成功' });
-      }, 1500);
+      }
     }
   }
 }
