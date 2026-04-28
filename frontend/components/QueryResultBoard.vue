@@ -1,182 +1,150 @@
 <template>
-  <div class="result-container">
-    <div class="result-card">
-      <div class="header-section">
-        <h2 class="main-title">查询结果</h2>
-        <p class="sub-title">仅本人可见</p>
-      </div>
+  <view v-if="resultData" class="result-wrapper">
+    <view class="result-card">
+      <view class="header-section">
+        <text class="main-title">查询结果</text>
+        <text class="sub-title">仅本人可见</text>
+      </view>
 
-      <div class="score-circle-wrapper">
-        <div class="score-circle">
-          <div class="score-number">{{ resultData.totalScore }}</div>
-          <div class="score-label">总分</div>
-        </div>
-      </div>
+      <view class="score-circle-wrapper">
+        <view class="score-circle">
+          <text class="score-number">{{ resultData.totalScore }}</text>
+          <text class="score-label">总分</text>
+        </view>
+      </view>
 
-      <div class="info-list">
-        <div class="info-item">
-          <span class="label">姓名</span>
-          <span class="value bold">{{ resultData.name }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">班级排名</span>
-          <span class="value bold">{{ resultData.rank }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">击败人数占比</span>
-          <span class="value bold">{{ resultData.percentage }}%</span>
-        </div>
-      </div>
+      <view class="info-list">
+        <view class="info-item">
+          <text class="label">姓名</text>
+          <text class="value bold">{{ resultData.name }}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">班级排名</text>
+          <text class="value bold">{{ resultData.rank }}</text>
+        </view>
+        <view class="info-item">
+          <text class="label">击败人数占比</text>
+          <text class="value bold">{{ resultData.percentage }}%</text>
+        </view>
+      </view>
+      
+      <view class="congrats-box">
+        <text class="congrats-text">🎉 太棒了！你的表现非常优异，荣登排行榜前列！继续保持这份热情！</text>
+      </view>
 
-      <div class="action-section">
-        <button class="back-btn" @click="$emit('back')">返回查询</button>
-      </div>
-    </div>
-  </div>
+      <view class="action-section">
+        <text class="back-link" @tap="$emit('back')">返回查询</text>
+      </view>
+    </view>
+  </view>
 </template>
 
-<script>
-export default {
-  name: 'QueryResultBoard',
-  props: {
-    resultData: {
-      type: Object,
-      default: () => ({
-        totalScore: 8,
-        name: '黄泓铭',
-        rank: 4,
-        percentage: 93.0
-      })
-    }
-  },
-  emits: ['back']
-}
+<script setup>
+// 使用 defineProps 明确声明接收的数据
+const props = defineProps({
+  resultData: {
+    type: Object,
+    required: true,
+    default: () => ({
+      totalScore: 0,
+      name: '',
+      rank: 0,
+      percentage: 0
+    })
+  }
+});
+
+defineEmits(['back']);
 </script>
 
-<style scoped>
-.result-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px 20px;
-  background-color: #f8f9fb; /* 调浅背景色以突出卡片 */
-  min-height: 100vh;
-  box-sizing: border-box;
+<style lang="scss" scoped>
+.result-wrapper {
+  width: 100%;
+  /* 如果背景需要灰色，可以在这里设置，或者在页面设置 */
+  background-color: #f8f9fb; 
 }
 
 .result-card {
-  width: 100%;
-  max-width: 340px; /* 固定最大宽度以还原窄长比例 */
-  background: white;
-  border-radius: 24px; /* 增加圆角弧度 */
-  padding: 40px 28px;
-  /* 调整阴影使其更轻盈且范围更大 */
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+  width: 100%; /* 占满屏幕 */
+  background: #ffffff;
+  border-radius: 0 0 32rpx 32rpx; /* 仅底部圆角，更贴合顶部导航 */
+  padding: 60rpx 40rpx;
   box-sizing: border-box;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.02);
+}
+
+.congrats-box {
+  background-color: #e6f7ff;
+  border: 1rpx solid #bae7ff;
+  border-radius: 12rpx;
+  padding: 24rpx;
+  margin-top: 40rpx;
+  .congrats-text {
+    font-size: 26rpx;
+    color: #1890ff;
+    line-height: 1.6;
+  }
 }
 
 .header-section {
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 40rpx;
+  .main-title {
+    color: #1677ff;
+    font-size: 52rpx;
+    font-weight: bold;
+    display: block;
+  }
+  .sub-title {
+    color: #999;
+    font-size: 28rpx;
+    margin-top: 10rpx;
+  }
 }
 
-.main-title {
-  color: #1677ff;
-  font-size: 26px;
-  font-weight: 700;
-  margin: 0;
-  letter-spacing: 1px;
-}
-
-.sub-title {
-  color: #999;
-  font-size: 15px;
-  margin: 10px 0 0;
-}
-
-/* 分数圆环还原 */
 .score-circle-wrapper {
   display: flex;
   justify-content: center;
-  margin-bottom: 40px;
+  margin: 40rpx 0;
 }
 
 .score-circle {
-  width: 130px;
-  height: 130px;
-  border: 5px solid #49b972; /* 绿色线条宽度微调 */
+  width: 260rpx;
+  height: 260rpx;
+  border: 10rpx solid #49b972;
   border-radius: 50%;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-}
-
-.score-number {
-  font-size: 48px;
-  font-weight: 700;
-  color: #49b972;
-  line-height: 1;
-}
-
-.score-label {
-  font-size: 15px;
-  color: #999;
-  margin-top: 6px;
-}
-
-/* 列表样式优化 */
-.info-list {
-  margin-bottom: 40px;
+  .score-number {
+    font-size: 90rpx;
+    font-weight: bold;
+    color: #49b972;
+  }
+  .score-label {
+    font-size: 28rpx;
+    color: #666;
+  }
 }
 
 .info-item {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 18px 0;
-  border-bottom: 1px solid #f2f2f2;
+  padding: 36rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+  &:last-child { border-bottom: none; }
+  .label { color: #666; font-size: 32rpx; }
+  .value { color: #333; font-size: 34rpx; &.bold { font-weight: bold; } }
 }
 
-.info-item:last-child {
-  border-bottom: none;
-}
-
-.label {
-  color: #666;
-  font-size: 17px;
-}
-
-.value {
-  color: #333;
-  font-size: 18px;
-}
-
-.value.bold {
-  font-weight: 700;
-}
-
-/* 返回按钮：还原为截图中的带边框矩形样式 */
 .action-section {
+  margin-top: 60rpx;
   text-align: center;
-}
-
-.back-btn {
-  background: #fff;
-  border: 1px solid #e0e0e0; /* 还原灰色细边框 */
-  color: #888;
-  padding: 10px 32px;
-  border-radius: 10px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: all 0.2s;
-  width: auto;
-  min-width: 140px;
-}
-
-.back-btn:hover {
-  border-color: #1677ff;
-  color: #1677ff;
-  background-color: #f0f7ff;
+  padding-bottom: 20rpx;
+  .back-link {
+    color: #888;
+    font-size: 30rpx;
+  }
 }
 </style>

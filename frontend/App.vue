@@ -13,5 +13,22 @@
 </script>
 
 <style>
-	/*每个页面公共css */
+	/* 1. 强制所有元素使用怪异盒子模型，宽度包含 padding 和 border */
+	view, scroll-view, text {
+		box-sizing: border-box;
+	}
+
+	/* 2. 你原本的滚动条隐藏代码 */
+	.mobile-page ::-webkit-scrollbar {
+		display: none;
+		width: 0 !important;
+		height: 0 !important;
+		background: transparent;
+	}
+    
+	/* 3. 确保页面容器不会横向溢出 */
+	page {
+		width: 100%;
+		overflow-x: hidden;
+	}
 </style>

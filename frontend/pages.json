@@ -1,18 +1,77 @@
 {
 	"pages": [ 
-		{
-			"path": "pages/login/index",
-			"style": {
-				"navigationBarTitleText": "登录",
+			{
+			  "path": "pages/login/index",
+			  "style": {
 				"navigationStyle": "custom"
-			}
-		}
+			  }
+			},
+			{
+		      "path": "pages/student/index",
+		      "style": {
+		        "navigationBarTitleText": "首页",
+				"navigationStyle": "custom"
+		      }
+		    },
+		    {
+		      "path": "pages/student/notice",
+		      "style": {
+		        "navigationBarTitleText": "通知",
+				"navigationStyle": "custom"
+		      }
+		    },
+		    {
+		      "path": "pages/student/mine",
+		      "style": {
+		        "navigationBarTitleText": "我的",
+				"navigationStyle": "custom"
+		      }
+		    },
+			{
+			      "path": "pages/task/AssignmentDetail",
+			      "style": {
+			        "navigationBarTitleText": "作业详情",
+			        "navigationStyle": "custom" 
+			      }
+			    },
+			    {
+			      "path": "pages/task/RankList",
+			      "style": {
+			        "navigationBarTitleText": "排行榜"
+			      }
+			    }
 	],
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
 		"navigationBarTitleText": "uni-app",
 		"navigationBarBackgroundColor": "#F8F8F8",
 		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+	    "color": "#7A7E83",
+	    "selectedColor": "#07c160",
+	    "borderStyle": "black",
+	    "backgroundColor": "#ffffff",
+	    "list": [
+	        {
+	            "pagePath": "pages/student/index",
+	            "text": "首页",
+	            "iconPath": "static/student_index.png", 
+	            "selectedIconPath": "static/student_index_act.png"
+	        },
+	        {
+	            "pagePath": "pages/student/notice",
+	            "text": "通知",
+	            "iconPath": "/static/student_notice.png",
+	            "selectedIconPath": "/static/student_notice_act.png"
+	        },
+	        {
+	            "pagePath": "pages/student/mine",
+	            "text": "我的",
+	            "iconPath": "/static/student_mine.png",
+	            "selectedIconPath": "/static/student_mine_act.png"
+	        }
+	    ]
 	},
 	"uniIdRouter": {}
 }
