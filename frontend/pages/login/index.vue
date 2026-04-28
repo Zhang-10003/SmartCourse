@@ -36,10 +36,14 @@
           </view>
 
           <view class="action-bar">
-            <label class="remember-me" @tap="toggleRemember">
-              <checkbox :checked="form.remember" color="#2979ff" style="transform:scale(0.6)" />
+            <view class="remember-me" @tap="handleRememberClick">
+              <checkbox 
+                :checked="rememberChecked" 
+                color="#2979ff" 
+                style="transform:scale(0.6); pointer-events: none;" 
+              />
               <text>记住我</text>
-            </label>
+            </view>
             <text class="forget-pwd">忘记密码？</text>
           </view>
 
@@ -68,55 +72,113 @@ import request from '@/utils/request.js'
 export default {
   data() {
     return {
-      form: { username: '', password: '', remember: false },
+      form: {
+        username: '',
+        password: ''
+      },
+      rememberChecked: false,
       loading: false
     }
   },
+  onLoad() {
+    console.log('登录页面 onLoad');
+    this.loadRememberedPassword();
+  },
   methods: {
-    toggleRemember() {
-      this.form.remember = !this.form.remember;
+    // 统一处理点击“记住我”区域的逻辑
+    handleRememberClick() {
+      this.rememberChecked = !this.rememberChecked;
+      console.log('记住我状态切换至:', this.rememberChecked);
     },
+    
+    // 加载存储的信息
+    loadRememberedPassword() {
+      try {
+        const remembered = uni.getStorageSync('rememberedUser');
+        if (remembered && remembered.username) {
+          const now = Date.now();
+          // 检查是否在有效期内
+          if (remembered.expireTime && remembered.expireTime > now) {
+            this.form.username = remembered.username;
+            this.form.password = remembered.password;
+            this.rememberChecked = true;
+            console.log('已成功填充记住的信息');
+          } else {
+            uni.removeStorageSync('rememberedUser');
+            console.log('信息已过期，已清除');
+          }
+        }
+      } catch (e) {
+        console.error('读取存储失败', e);
+      }
+    },
+    
+    // 保存信息逻辑
+    saveRememberedPassword() {
+      if (this.rememberChecked) {
+        const threeDays = 3 * 24 * 60 * 60 * 1000;
+        const data = {
+          username: this.form.username,
+          password: this.form.password,
+          expireTime: Date.now() + threeDays
+        };
+        uni.setStorageSync('rememberedUser', data);
+        console.log('已执行保存逻辑');
+      } else {
+        uni.removeStorageSync('rememberedUser');
+        console.log('已执行清除逻辑');
+      }
+    },
+    
     async handleLogin() {
       if (!this.form.username || !this.form.password) {
         uni.showToast({ title: '请输入账号密码', icon: 'none' });
         return;
       }
+      
       this.loading = true;
       
       try {
-        console.log('开始登录，用户名:', this.form.username);
-        
         const responseData = await request.post('/auth/login', {
           username: this.form.username,
           password: this.form.password
         });
         
-        console.log('登录响应数据:', responseData);
-        
-        if (responseData.user_type !== undefined) {
-          const userData = responseData;
-          console.log('登录成功，用户数据:', userData);
+        // 判断登录成功的条件（根据你的接口返回结构，这里假设有 user_id 或 access_token）
+        if (responseData && (responseData.user_id || responseData.access_token)) {
           
-          uni.setStorageSync('userInfo', userData);
+          // 1. 处理记住密码逻辑
+          this.saveRememberedPassword();
           
-          const userType = String(userData.user_type);
-          console.log('用户类型:', userType);
+          // 2. 存储用户信息
+          uni.setStorageSync('userInfo', responseData);
           
+          // 3. 成功时不弹窗，直接跳转
+          const userType = String(responseData.user_type);
           if (userType === '1') {
             uni.switchTab({ url: '/pages/student/index' });
-          } else if (userType === '0') {
-            uni.switchTab({ url: '/pages/teacher/index' });
           } else {
-            uni.showToast({ title: '用户类型错误', icon: 'none' });
-            console.log('用户类型值:', userData.user_type);
+            uni.switchTab({ url: '/pages/teacher/index' });
           }
+          
         } else {
-          console.log('登录失败，响应数据:', responseData);
-          const errorMessage = responseData.message || responseData.detail || '登录失败';
-          uni.showToast({ title: errorMessage, icon: 'none' });
+          // 4. 业务逻辑上的失败（例如：密码错误，responseData 里带着错误信息）
+          const msg = responseData.message || responseData.error || '登录失败，请检查账号密码';
+          uni.showModal({
+            title: '登录失败',
+            content: msg,
+            showCancel: false,
+            confirmColor: '#2979ff'
+          });
         }
       } catch (error) {
-        console.error('登录错误:', error);
+        // 5. 网络请求失败或服务器宕机
+        console.error('登录请求异常:', error);
+        uni.showModal({
+          title: '网络异常',
+          content: '无法连接到服务器，请检查网络设置',
+          showCancel: false
+        });
       } finally {
         this.loading = false;
       }
@@ -135,45 +197,38 @@ $text-grey: #94a3b8;
   position: relative;
   display: flex;
   justify-content: center;
-  align-items: center; /* 基础居中 */
+  align-items: center;
   min-height: 100vh;
   background-color: $bg-light;
-  overflow: hidden;
 }
 
-/* 内容容器上移 */
 .content-container {
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* 通过负的 margin-top 让整体内容（Logo+卡片）往上方挪 */
-  margin-top: -120rpx; 
+  margin-top: -120rpx;
   z-index: 10;
 }
 
 .app-logo {
-  margin-bottom: 60rpx; /* 压缩 Logo 与卡片间距 */
+  margin-bottom: 60rpx;
   .app-name {
     font-size: 52rpx;
     font-weight: 900;
-    color: #1d1e2c;
+    color: $text-main;
     letter-spacing: 6rpx;
-    text-shadow: 0 4rpx 10rpx rgba(0, 0, 0, 0.05);
   }
 }
 
 .login-card {
-  /* 调小侧边距：增加宽度百分比 */
-  width: 90%; 
+  width: 90%;
   max-width: 400px;
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
   border-radius: 48rpx;
-  /* 调小内部左右边距 */
-  padding: 60rpx 40rpx; 
-  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
+  padding: 60rpx 40rpx;
   box-sizing: border-box;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.05);
 }
 
 .header-section {
@@ -181,14 +236,12 @@ $text-grey: #94a3b8;
   .main-title {
     font-size: 42rpx;
     font-weight: 800;
-    color: $text-main;
   }
   .title-bar {
     width: 44rpx;
     height: 6rpx;
     background: $primary-color;
     margin: 12rpx 0;
-    border-radius: 10rpx;
   }
 }
 
@@ -201,11 +254,9 @@ $text-grey: #94a3b8;
   padding: 0 24rpx;
   margin-bottom: 24rpx;
   height: 96rpx;
-  
   input {
     flex: 1;
     font-size: 28rpx;
-    color: $text-main;
   }
 }
 
@@ -214,12 +265,14 @@ $text-grey: #94a3b8;
   justify-content: space-between;
   align-items: center;
   margin: 10rpx 0 50rpx;
-  font-size: 24rpx;
+  font-size: 26rpx;
   
   .remember-me {
     display: flex;
     align-items: center;
     color: $text-grey;
+    /* 增加点击区域，提升体验 */
+    padding: 10rpx 0; 
   }
   .forget-pwd { color: $primary-color; }
 }
@@ -231,10 +284,7 @@ $text-grey: #94a3b8;
   background: linear-gradient(135deg, $primary-color 0%, #0056e0 100%);
   color: #fff;
   border-radius: 24rpx;
-  font-size: 30rpx;
   font-weight: 600;
-  box-shadow: 0 10rpx 20rpx rgba(41, 121, 255, 0.2);
-  &::after { border: none; }
 }
 
 .footer-section {
@@ -246,11 +296,9 @@ $text-grey: #94a3b8;
     color: $text-main;
     font-weight: bold;
     margin-left: 10rpx;
-    text-decoration: underline;
   }
 }
 
-/* 装饰背景保持不变 */
 .bg-decoration-top {
   position: absolute;
   top: -100rpx;
@@ -258,6 +306,5 @@ $text-grey: #94a3b8;
   width: 400rpx;
   height: 400rpx;
   background: radial-gradient(circle, rgba(41, 121, 255, 0.1) 0%, transparent 70%);
-  border-radius: 50%;
 }
 </style>
