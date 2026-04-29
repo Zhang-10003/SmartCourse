@@ -32,7 +32,7 @@
             <p class="text-slate-500 mt-2">拖拽左侧题型至画布，已在画布的题型可直接拖动位置。</p>
           </view>
           <view class="flex gap-4">
-            <button class="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-semibold shadow-sm hover:bg-slate-50 transition-all">导出预览</button>
+            <button class="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-semibold shadow-sm hover:bg-slate-50 transition-all">发布作业</button>
             <button @click="saveWorkflow" class="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">保存工作流</button>
           </view>
         </header>
@@ -154,7 +154,6 @@
         <view class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
           <view>
             <h2 class="text-2xl font-bold text-slate-900">{{ drawer.title }}</h2>
-            <p class="text-slate-500 text-sm mt-1">SmartCourse 配置引擎</p>
           </view>
           <button @click="drawer.show = false" class="p-2 hover:bg-white rounded-full shadow-sm text-slate-400">×</button>
         </view>
