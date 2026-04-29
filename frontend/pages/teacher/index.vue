@@ -29,7 +29,7 @@
         <header class="flex flex-col lg:flex-row lg:justify-between lg:items-end mb-10 gap-4">
           <view>
             <h1 class="text-3xl font-bold text-slate-900">我的作业流</h1>
-            <p class="text-slate-500 mt-2">拖拽左侧题型组件至画布，构建您的智能课件。</p>
+            <p class="text-slate-500 mt-2">拖拽左侧题型至画布，已在画布的题型可直接拖动位置。</p>
           </view>
           <view class="flex gap-4">
             <button class="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-semibold shadow-sm hover:bg-slate-50 transition-all">导出预览</button>
@@ -62,17 +62,30 @@
           >
             <view 
               v-for="(node, index) in nodes" :key="node.id"
-              class="node-element absolute glass-panel p-5 rounded-[24px] cursor-pointer hover:scale-105 transition-all duration-300 z-10 border border-white shadow-lg"
-              :style="{ left: node.x + 'px', top: node.y + 'px', minWidth: '200px' }"
-              @click.stop="openEditor(node, index)"
+              class="node-element absolute glass-panel p-5 rounded-[24px] cursor-move z-10 border border-white shadow-lg select-none"
+              :style="{ 
+                left: node.x + 'px', 
+                top: node.y + 'px', 
+                minWidth: '200px',
+                willChange: (isUpdating || draggingNodeIndex === index) ? 'auto' : 'left, top',
+                transition: (isUpdating || draggingNodeIndex === index) ? 'none' : 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1), top 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s, box-shadow 0.2s' 
+              }"
+              @mousedown.stop="onNodeMouseDown($event, index)"
+              @click.stop="handleNodeClick(node, index)"
             >
-              <view class="flex justify-between items-center mb-4">
+              <view class="flex justify-between items-center mb-4 pointer-events-none">
                 <text class="text-[10px] font-bold text-slate-400 tracking-widest uppercase">NODE_{{ index + 1 }}</text>
-                <view :class="node.color" class="w-2.5 h-2.5 rounded-full shadow-sm"></view>
+                <view 
+                  @click.stop="removeNode(index)" 
+                  :class="[node.color, 'pointer-events-auto']" 
+                  class="w-5 h-5 rounded-full shadow-sm flex items-center justify-center cursor-pointer hover:scale-110 active:scale-90 transition-transform"
+                >
+                  <text class="text-white text-[12px] font-bold" style="line-height: 1;">×</text>
+                </view>
               </view>
-              <view class="font-bold text-slate-800 mb-3">{{ node.type }}</view>
+              <view class="font-bold text-slate-800 mb-3 pointer-events-none">{{ node.type }}</view>
               
-              <view class="space-y-2">
+              <view class="space-y-2 pointer-events-none">
                 <view class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <view :class="node.color" class="w-1/2 h-full opacity-30"></view>
                 </view>
@@ -168,10 +181,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue';
 
 const currentTab = ref('design');
 const nodes = ref([]);
+const isUpdating = ref(false); 
 const drawer = reactive({
   show: false,
   title: '',
@@ -187,81 +201,113 @@ const toolset = [
   { type: '判断题', color: 'bg-rose-500' }
 ];
 
-// 【核心修复 1】：改用全局 mousePos 存储 page 坐标
 let draggingItem = null;
 const mousePos = { x: 0, y: 0 };
+const draggingNodeIndex = ref(-1);
+let offset = { x: 0, y: 0 };
+let canvasRect = null; 
+let startPoint = { x: 0, y: 0 };
+let hasMoved = false;
 
 const updateMousePos = (e) => {
-  // pageX 包含页面滚动偏移，在 H5 容器中计算最稳
   mousePos.x = e.pageX || e.clientX;
   mousePos.y = e.pageY || e.clientY;
+
+  if (draggingNodeIndex.value !== -1) {
+    const moveX = Math.abs(mousePos.x - startPoint.x);
+    const moveY = Math.abs(mousePos.y - startPoint.y);
+    if (moveX > 5 || moveY > 5) {
+      hasMoved = true;
+    }
+
+    if (!canvasRect) return;
+    nodes.value[draggingNodeIndex.value].x = mousePos.x - canvasRect.left - offset.x;
+    nodes.value[draggingNodeIndex.value].y = mousePos.y - canvasRect.top - offset.y;
+  }
+};
+
+const stopInternalDrag = () => {
+  setTimeout(() => {
+    draggingNodeIndex.value = -1;
+    canvasRect = null;
+  }, 10);
 };
 
 onMounted(() => {
-  // 使用 capture 模式确保在拖拽期间也能捕获到位置
   window.addEventListener('mousemove', updateMousePos, true);
-  // 部分浏览器在拖拽时只触发 dragover，补充一层保障
   window.addEventListener('dragover', updateMousePos, true);
+  window.addEventListener('mouseup', stopInternalDrag);
 });
 
 onUnmounted(() => {
   window.removeEventListener('mousemove', updateMousePos, true);
   window.removeEventListener('dragover', updateMousePos, true);
+  window.removeEventListener('mouseup', stopInternalDrag);
 });
 
 const onDragStart = (e, item) => {
   draggingItem = item;
-  const nativeEvent = e.nativeEvent || e;
-  if (nativeEvent.dataTransfer) {
-    nativeEvent.dataTransfer.setData('text/plain', item.type);
-    nativeEvent.dataTransfer.effectAllowed = "move";
-  }
 };
 
 const onDrop = (e) => {
   e.preventDefault();
   if (!draggingItem) return;
-
-  // 【核心修复 2】：同步强行获取画布真实位置
   const canvasElement = document.querySelector('.node-canvas-bg');
-  if (!canvasElement) return;
-
-  // 获取画布相对于文档的绝对偏移
   const rect = canvasElement.getBoundingClientRect();
-  const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
-  const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-  
-  // 画布在文档中的绝对坐标
-  const canvasDocX = rect.left + scrollLeft;
-  const canvasDocY = rect.top + scrollTop;
-
-  /**
-   * 【核心修复 3】：坐标逻辑对齐
-   * 鼠标文档坐标 - 画布文档坐标 - 节点中心偏移
-   */
-  let x = mousePos.x - canvasDocX - 100;
-  let y = mousePos.y - canvasDocY - 40;
-
-  console.log('PagePos:', mousePos.x, mousePos.y, 'CanvasDoc:', canvasDocX, canvasDocY);
-
-  // 极端防御：如果算出来还是挤在左边（说明 rect.left 拿到的不对）
-  // 增加最小安全边距
-  if (x < 0) x = 20; 
-  if (y < 0) y = 20;
-
+  // 优化 ID 生成方式，确保唯一性
+  const uniqueId = `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   nodes.value.push({
-    id: Date.now(),
+    id: uniqueId,
     type: draggingItem.type,
     color: draggingItem.color,
-    x: x,
-    y: y,
+    x: Math.max(0, mousePos.x - rect.left - 100),
+    y: Math.max(0, mousePos.y - rect.top - 40),
     content: ''
   });
-  
   draggingItem = null;
 };
 
-// --- 其他 UI 逻辑保持不变 ---
+const onNodeMouseDown = (e, index) => {
+  startPoint = { x: e.pageX || e.clientX, y: e.pageY || e.clientY };
+  hasMoved = false;
+
+  const node = nodes.value[index];
+  const canvasElement = document.querySelector('.node-canvas-bg');
+  canvasRect = canvasElement.getBoundingClientRect();
+  
+  offset.x = (e.clientX - canvasRect.left) - node.x;
+  offset.y = (e.clientY - canvasRect.top) - node.y;
+  
+  draggingNodeIndex.value = index;
+};
+
+const handleNodeClick = (node, index) => {
+  if (hasMoved) {
+    hasMoved = false;
+    return;
+  }
+  openEditor(node, index);
+};
+
+const removeNode = (index) => {
+  // 1. 立即锁定状态，禁用所有节点的 transition
+  isUpdating.value = true;
+  
+  // 2. 在下一个渲染帧之前执行删除，确保样式已经设为 'none'
+  requestAnimationFrame(() => {
+    nodes.value.splice(index, 1);
+    
+    // 3. 等待 DOM 更新完成后，通过双重 raf 确保浏览器已经完成重绘再恢复动画
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          isUpdating.value = false;
+        });
+      });
+    });
+  });
+};
+
 const openEditor = (node, index) => {
   drawer.title = `编辑：${node.type} (#${index + 1})`;
   drawer.editingNode = { ...node };
@@ -278,7 +324,7 @@ const saveNode = () => {
 
 const deleteNode = () => {
   if (drawer.currentIndex !== -1) {
-    nodes.value.splice(drawer.currentIndex, 1);
+    removeNode(drawer.currentIndex);
     drawer.show = false;
   }
 };
@@ -293,28 +339,20 @@ const saveWorkflow = () => {
   background-image: radial-gradient(#cbd5e1 1px, transparent 1px);
   background-size: 24px 24px;
 }
-
 .glass-panel {
   background: rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
 }
-
-/* 锚点交互：模仿 HTML 中的 group-hover */
-.node-element:hover .anchor-left {
-  border-color: #4f46e5;
+.node-element {
+  /* 基础动画仅保留 transform，位置动画在 style 中动态控制 */
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
 }
-.node-element:hover .anchor-right {
-  background-color: #4f46e5;
-}
-
+.node-element:active { cursor: grabbing; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
-
-.animate-in {
-  animation: fadeIn 0.4s ease-out;
-}
+.animate-in { animation: fadeIn 0.4s ease-out; }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
+.select-none { user-select: none; }
 </style>
