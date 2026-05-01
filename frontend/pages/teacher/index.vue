@@ -23,8 +23,7 @@
       </nav>
     </aside>
 
-    <main class="flex-1 overflow-y-auto p-4 lg:p-8 relative no-scrollbar">
-      
+    <main class="flex-1 overflow-y-auto p-4 lg:p-8 pb-64 relative no-scrollbar">
       <view v-if="currentTab === 'design'" class="animate-in fade-in duration-500">
         <header class="flex flex-col lg:flex-row lg:justify-between lg:items-end mb-10 gap-4">
           <view>
@@ -106,37 +105,281 @@
         </view>
       </view>
 
-      <view v-else class="animate-in slide-in-from-right duration-500">
-        <header class="mb-10">
-          <h1 class="text-3xl font-bold text-slate-900">作业管理中心</h1>
-          <p class="text-slate-500 mt-2">在这里追踪所有已发布作业的收集情况与数据分析。</p>
-        </header>
+      <view v-else class="relative min-h-full">
+        <view :class="currentView === 'list' ? 'view-active' : 'view-hidden'" class="view-transition absolute inset-0 p-4 lg:p-8">
+          <header class="mb-10">
+            <h1 class="text-3xl font-bold text-slate-900">作业管理中心</h1>
+            <p class="text-slate-500 mt-2">在这里追踪所有已发布作业的收集情况与数据分析。</p>
+          </header>
 
-        <view class="space-y-12">
-            <section>
-                <view class="flex items-center gap-3 mb-6">
-                    <view class="w-1 h-6 bg-indigo-600 rounded-full"></view>
-                    <text class="text-lg font-bold text-slate-800">今天发布</text>
-                    <text class="text-xs bg-slate-100 text-slate-500 px-2 py-1 rounded-md">2 项任务</text>
+          <view class="space-y-12">
+              <section>
+                  <view class="flex items-center gap-3 mb-6">
+                      <view class="w-1 h-6 bg-indigo-600 rounded-full"></view>
+                      <text class="text-lg font-bold text-slate-800">今天发布</text>
+                  </view>
+                  <view class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <AssignmentCard 
+                        title="计算机网络周测 - TCP原理" 
+                        deadline="截止: 05-10 18:00" 
+                        status="进行中"
+                        :participants="[
+                          { initial: 'A', bgClass: 'bg-indigo-100 text-indigo-600' },
+                          { initial: 'B', bgClass: 'bg-emerald-100 text-emerald-600' },
+                          { initial: '+12', bgClass: 'bg-slate-100 text-slate-400' }
+                        ]"
+                        @detail-click="openAssignmentDetail('计算机网络周测 - TCP原理', '截止: 05-10 18:00', '进行中', [])"
+                      />
+                      <AssignmentCard 
+                        title="软件工程作业 - UML建模" 
+                        deadline="截止: 05-12 23:59" 
+                        status="进行中"
+                        :participants="[
+                          { initial: 'C', bgClass: 'bg-purple-100 text-purple-600' },
+                          { initial: 'D', bgClass: 'bg-pink-100 text-pink-600' },
+                          { initial: '+8', bgClass: 'bg-slate-100 text-slate-400' }
+                        ]"
+                        @detail-click="openAssignmentDetail('软件工程作业 - UML建模', '截止: 05-12 23:59', '进行中', [])"
+                      />
+                      <AssignmentCard 
+                        title="数据库系统设计报告" 
+                        deadline="截止: 05-15 18:00" 
+                        status="进行中"
+                        :participants="[
+                          { initial: 'E', bgClass: 'bg-orange-100 text-orange-600' },
+                          { initial: 'F', bgClass: 'bg-cyan-100 text-cyan-600' },
+                          { initial: '+15', bgClass: 'bg-slate-100 text-slate-400' }
+                        ]"
+                        @detail-click="openAssignmentDetail('数据库系统设计报告', '截止: 05-15 18:00', '进行中', [])"
+                      />
+                  </view>
+              </section>
+
+              <section>
+                  <view class="flex items-center gap-3 mb-6">
+                      <view class="w-1 h-6 bg-slate-300 rounded-full"></view>
+                      <text class="text-lg font-bold text-slate-800">近七天</text>
+                  </view>
+                  <view class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80 hover:opacity-100 transition-opacity">
+                      <AssignmentCard 
+                        title="操作系统同步互斥习题" 
+                        deadline="截止: 04-15 23:59" 
+                        status="已截止"
+                        @ranking-click="openAssignmentDetail('操作系统同步互斥习题', '截止: 04-15 23:59', '已截止', [])"
+                      />
+                  </view>
+              </section>
+          </view>
+        </view>
+
+        <view :class="currentView === 'detail' ? 'view-active' : 'view-hidden'" class="view-transition p-4 lg:px-24 lg:py-4">
+          <view @click="closeDetailView" class="flex items-center text-slate-400 hover:text-indigo-600 mb-6 cursor-pointer transition-colors">
+            <text class="text-lg mr-2">←</text>
+            <text class="font-semibold">返回列表</text>
+          </view>
+
+          <header class="flex justify-between items-end mb-8">
+            <view>
+              <h2 class="text-2xl font-bold text-slate-800 tracking-tight">{{ selectedAssignment.title }}</h2>
+              <p class="text-indigo-500 mt-2 font-medium text-sm">数据统计与实时排行榜分析</p>
+            </view>
+            <view class="flex gap-3">
+              <button class="px-4 py-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-colors text-sm">导出报表</button>
+              <button class="px-4 py-2 bg-indigo-600 rounded-xl font-semibold text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-colors text-sm">提醒未交学生</button>
+            </view>
+          </header>
+
+          <view class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+            <view class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <text class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 block">已提交人数</text>
+              <view class="flex items-end justify-between">
+                <text class="text-3xl font-black text-slate-800">57</text>
+                <text class="text-green-500 text-xs font-bold mb-1">+2% vs 均值</text>
+              </view>
+            </view>
+            <view class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <text class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 block">平均得分</text>
+              <view class="flex items-end justify-between">
+                <text class="text-3xl font-black text-indigo-600">6.3</text>
+                <view class="w-16 h-2 bg-slate-100 rounded-full overflow-hidden mb-2">
+                  <view class="w-[78%] h-full bg-indigo-500"></view>
                 </view>
-                <view class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <view class="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm hover:shadow-md transition-all">
-                        <view class="flex justify-between items-start mb-4">
-                            <text class="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg uppercase">进行中</text>
-                            <text class="text-slate-300">•••</text>
-                        </view>
-                        <h3 class="text-lg font-bold text-slate-900 mb-2">计算机网络周测 - TCP原理</h3>
-                        <p class="text-sm text-slate-400 mb-6">截止: 05-10 18:00</p>
-                        <view class="pt-4 border-t border-slate-50 flex justify-between items-center">
-                            <view class="flex -space-x-2">
-                                <view class="w-7 h-7 rounded-full bg-indigo-100 border-2 border-white flex items-center justify-center text-[10px] text-indigo-600 font-bold">A</view>
-                                <view class="w-7 h-7 rounded-full bg-emerald-100 border-2 border-white flex items-center justify-center text-[10px] text-emerald-600 font-bold">B</view>
-                            </view>
-                            <text class="text-xs font-bold text-indigo-600">查看详情 →</text>
-                        </view>
+              </view>
+            </view>
+            <view class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+              <text class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 block">优秀率 (A)</text>
+              <view class="flex items-end justify-between">
+                <text class="text-3xl font-black text-green-500">22%</text>
+                <text class="text-slate-300 text-[10px] mb-1">目标: 15%</text>
+              </view>
+            </view>
+            <view class="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm border-l-4 border-l-rose-500">
+              <text class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 block">高频错题</text>
+              <view class="flex items-end justify-between">
+                <text class="text-3xl font-black text-rose-500">Q7</text>
+                <text class="text-rose-400 text-xs font-medium mb-1">错误率 42%</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+            <view class="lg:col-span-1 bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
+              <h3 class="text-lg font-bold mb-6 text-slate-800">成绩分布概览</h3>
+              <view class="h-[260px] flex flex-col items-center justify-center">
+                <view class="relative w-40 h-40">
+                  <svg viewBox="0 0 100 100" class="w-full h-full">
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#f1f5f9" stroke-width="12"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#4f46e5" stroke-width="12" stroke-dasharray="100.5 314" stroke-dashoffset="0" transform="rotate(-90 50 50)"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#818cf8" stroke-width="12" stroke-dasharray="88 314" stroke-dashoffset="-100.5" transform="rotate(-90 50 50)"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#c7d2fe" stroke-width="12" stroke-dasharray="78.5 314" stroke-dashoffset="-188.5" transform="rotate(-90 50 50)"/>
+                    <circle cx="50" cy="50" r="40" fill="none" stroke="#f8fafc" stroke-width="12" stroke-dasharray="47 314" stroke-dashoffset="-267" transform="rotate(-90 50 50)"/>
+                  </svg>
+                </view>
+                <view class="flex justify-center gap-4 mt-4">
+                  <view class="flex items-center">
+                    <view class="w-3 h-3 rounded-full bg-indigo-600 mr-1.5"></view>
+                    <text class="text-xs text-slate-500">优秀</text>
+                  </view>
+                  <view class="flex items-center">
+                    <view class="w-3 h-3 rounded-full bg-indigo-400 mr-1.5"></view>
+                    <text class="text-xs text-slate-500">良好</text>
+                  </view>
+                  <view class="flex items-center">
+                    <view class="w-3 h-3 rounded-full bg-indigo-200 mr-1.5"></view>
+                    <text class="text-xs text-slate-500">及格</text>
+                  </view>
+                  <view class="flex items-center">
+                    <view class="w-3 h-3 rounded-full bg-slate-100 border border-slate-200 mr-1.5"></view>
+                    <text class="text-xs text-slate-500">待加强</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+            <view class="lg:col-span-2 bg-white rounded-3xl p-8 border border-slate-100 shadow-sm">
+              <view class="flex justify-between items-center mb-6">
+                <h3 class="text-lg font-bold text-slate-800">各题目正确率 (%)</h3>
+              </view>
+              <view class="h-[260px] flex">
+                <view class="flex flex-col justify-between py-1 mr-4 text-[10px] text-slate-400">
+                  <text>100</text>
+                  <text>80</text>
+                  <text>60</text>
+                  <text>40</text>
+                  <text>20</text>
+                  <text>0</text>
+                </view>
+                <view class="flex-1 flex items-end justify-around gap-2">
+                  <view class="flex flex-col items-center flex-1" v-for="(item, index) in questionScores" :key="index">
+                    <view 
+                      class="w-8 rounded-t-md transition-all duration-500"
+                      :style="{ 
+                        height: item.score * 1.8 + 'px', 
+                        backgroundColor: item.color
+                      }"
+                    ></view>
+                    <text class="text-xs font-bold text-slate-600 mt-2">{{ item.label }}</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+          <view class="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+            <view class="flex justify-between items-center px-6 py-5 border-b border-slate-50">
+              <view class="flex items-center">
+                <text class="font-bold text-slate-800">学生提交排行</text>
+              </view>
+              <view class="flex bg-slate-100 p-1 rounded-lg">
+                <view 
+                  @click="currentSubmitTab = 'submitted'"
+                  :class="[
+                    'px-3 py-1 text-xs font-bold rounded-md cursor-pointer transition-all',
+                    currentSubmitTab === 'submitted' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'
+                  ]"
+                >已提交 (57)</view>
+                <view 
+                  @click="currentSubmitTab = 'unsubmitted'"
+                  :class="[
+                    'px-3 py-1 text-xs font-bold rounded-md cursor-pointer transition-all',
+                    currentSubmitTab === 'unsubmitted' ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'
+                  ]"
+                >未提交 (3)</view>
+              </view>
+            </view>
+            
+            <view class="px-6 py-4 border-b border-slate-50">
+              <view class="flex text-slate-400 text-xs font-medium">
+                <view class="flex-1">学生信息</view>
+                <view v-if="currentSubmitTab === 'submitted'" class="flex-1 text-center">提交时间</view>
+                <view v-if="currentSubmitTab === 'submitted'" class="flex-1 text-center">状态</view>
+                <view v-if="currentSubmitTab === 'submitted'" class="flex-1 text-center">得分</view>
+                <view class="flex-1 text-right">操作</view>
+              </view>
+            </view>
+            
+            <view v-if="currentSubmitTab === 'submitted'">
+              <view 
+                v-for="(student, index) in submittedStudents" 
+                :key="index"
+                :class="[
+                  'px-6 py-4 hover:bg-slate-50/50 transition-colors',
+                  index < submittedStudents.length - 1 ? 'border-b border-slate-50' : ''
+                ]"
+              >
+                <view class="flex items-center">
+                  <view class="flex-1 flex items-center">
+                    <view class="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 text-white flex items-center justify-center font-bold text-xs mr-2.5">
+                      {{ student.name.charAt(0) }}
                     </view>
+                    <view>
+                      <text class="text-sm font-bold text-slate-800">{{ student.name }}</text>
+                      <text class="text-xs text-slate-400 block">{{ student.className }} · {{ student.id }}</text>
+                    </view>
+                  </view>
+                  <view class="flex-1 text-center text-xs text-slate-500">{{ student.submitTime }}</view>
+                  <view class="flex-1 flex justify-center">
+                    <text class="px-2 py-0.5 bg-green-50 text-green-600 rounded-md text-xs font-medium">{{ student.status }}</text>
+                  </view>
+                  <view class="flex-1 text-center">
+                    <text class="text-sm font-bold text-slate-700">{{ student.score }}</text>
+                  </view>
+                  <view class="flex-1 flex justify-end">
+                    <text class="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-md cursor-pointer">查看答案</text>
+                  </view>
                 </view>
-            </section>
+              </view>
+            </view>
+            
+            <view v-else>
+              <view 
+                v-for="(student, index) in unsubmittedStudents" 
+                :key="index"
+                :class="[
+                  'px-6 py-4 hover:bg-slate-50/50 transition-colors',
+                  index < unsubmittedStudents.length - 1 ? 'border-b border-slate-50' : ''
+                ]"
+              >
+                <view class="flex items-center">
+                  <view class="flex-1 flex items-center">
+                    <view class="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs mr-2.5">
+                      {{ student.name.charAt(0) }}
+                    </view>
+                    <view>
+                      <text class="text-sm font-bold text-slate-800">{{ student.name }}</text>
+                      <text class="text-xs text-slate-400 block">{{ student.className }} · {{ student.id }}</text>
+                    </view>
+                  </view>
+                  <view class="flex-1"></view>
+                  <view class="flex-1"></view>
+                  <view class="flex-1"></view>
+                  <view class="flex-1 flex justify-end">
+                    <text class="text-xs font-bold text-orange-600 bg-orange-50 px-3 py-1 rounded-md cursor-pointer">提醒提交</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+          </view>
+        
+        <view class="h-2"></view>
         </view>
       </view>
     </main>
@@ -148,25 +391,74 @@
     >
       <view @click="drawer.show = false" class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></view>
       <view 
-        class="absolute top-0 right-0 h-full w-full md:w-[500px] bg-white shadow-2xl transition-transform duration-500 flex flex-col"
+        class="absolute top-0 right-0 h-full w-full md:w-[600px] bg-white shadow-2xl transition-transform duration-500 flex flex-col"
         :style="{ transform: drawer.show ? 'translateX(0)' : 'translateX(100%)' }"
       >
-        <view class="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <view>
-            <h2 class="text-2xl font-bold text-slate-900">{{ drawer.title }}</h2>
+        <view class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <view class="flex-1">
+            <h2 class="text-xl font-bold text-slate-900">{{ drawer.title }}</h2>
+            <p class="text-slate-500 text-xs mt-1">SmartCourse 配置引擎</p>
           </view>
-          <button @click="drawer.show = false" class="p-2 hover:bg-white rounded-full shadow-sm text-slate-400">×</button>
+          <view @click="closeDrawer" class="ml-4 text-slate-300 hover:text-slate-500 transition-colors text-xl cursor-pointer">×</view>
         </view>
 
-        <view class="flex-1 overflow-y-auto p-8 space-y-6">
-          <view>
-            <label class="block text-sm font-bold text-slate-700 uppercase mb-3">题目内容</label>
-            <textarea 
-              v-model="drawer.editingNode.content"
-              class="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-indigo-500" 
-              rows="4" 
-              placeholder="在此输入题目描述..."
-            ></textarea>
+        <view class="flex-1 overflow-y-auto p-8">
+          <view v-if="drawer.editingNode.type === '单选题'">
+            <QuestionChoiceEditor 
+              :index="drawer.currentIndex + 1"
+              :modelValue="drawer.editingNode.data"
+              :answer="drawer.editingNode.answer || 0"
+              @update:modelValue="(val) => drawer.editingNode.data = val"
+              @update:answer="(val) => drawer.editingNode.answer = val"
+            />
+          </view>
+
+          <view v-else-if="drawer.editingNode.type === '多选题'">
+            <QuestionMultipleChoiceEditor 
+              :index="drawer.currentIndex + 1"
+              :modelValue="drawer.editingNode.data"
+              :answer="drawer.editingNode.answer || []"
+              @update:modelValue="(val) => drawer.editingNode.data = val"
+              @update:answer="(val) => drawer.editingNode.answer = val"
+            />
+          </view>
+
+          <view v-else-if="drawer.editingNode.type === '判断题'">
+            <QuestionTrueFalseEditor 
+              :index="drawer.currentIndex + 1"
+              v-model="drawer.editingNode.data"
+            />
+          </view>
+
+          <view v-else-if="drawer.editingNode.type === '代码填空'">
+            <QuestionCodeFillEditor 
+              :index="drawer.currentIndex + 1"
+              :modelValue="drawer.editingNode.data"
+              @update:modelValue="(val) => drawer.editingNode.data = val"
+            />
+          </view>
+
+          <view v-else-if="drawer.editingNode.type === '填空题'">
+            <QuestionFillBlankEditor 
+              :index="drawer.currentIndex + 1"
+              v-model="drawer.editingNode.data"
+            />
+          </view>
+
+          <view v-else-if="drawer.editingNode.type === '匹配题'">
+            <QuestionMatching 
+              :index="drawer.currentIndex + 1"
+              :question="drawer.editingNode.data"
+              :status="'typing'"
+              @answer-change="(val) => drawer.editingNode.answer = val"
+            />
+          </view>
+
+          <view v-else-if="drawer.editingNode.type === '简答题'">
+            <QuestionShortAnswerEditor 
+              :index="drawer.currentIndex + 1"
+              v-model="drawer.editingNode.data"
+            />
           </view>
         </view>
 
@@ -181,14 +473,38 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue';
+import QuestionChoiceEditor from '@/components/QuestionChoiceEditor.vue';
+import QuestionMultipleChoiceEditor from '@/components/QuestionMultipleChoiceEditor.vue';
+import QuestionTrueFalseEditor from '@/components/QuestionTrueFalseEditor.vue';
+import QuestionCodeFillEditor from '@/components/QuestionCodeFillEditor.vue';
+import QuestionFillBlankEditor from '@/components/QuestionFillBlankEditor.vue';
+import QuestionMatching from '@/components/QuestionMatching.vue';
+import QuestionShortAnswerEditor from '@/components/QuestionShortAnswerEditor.vue';
+import AssignmentCard from '@/components/AssignmentCard.vue';
 
 const currentTab = ref('design');
 const nodes = ref([]);
 const isUpdating = ref(false); 
+const currentView = ref('list');
+const selectedAssignment = reactive({
+  title: '',
+  deadline: '',
+  status: '',
+  participants: []
+});
+
 const drawer = reactive({
   show: false,
   title: '',
-  editingNode: { content: '' },
+  editingNode: { 
+    type: '', 
+    data: {}, 
+    answer: null,
+    id: '',
+    x: 0,
+    y: 0,
+    color: ''
+  },
   currentIndex: -1
 });
 
@@ -197,7 +513,32 @@ const toolset = [
   { type: '多选题', color: 'bg-purple-500' },
   { type: '代码填空', color: 'bg-emerald-500' },
   { type: '匹配题', color: 'bg-orange-500' },
-  { type: '判断题', color: 'bg-rose-500' }
+  { type: '判断题', color: 'bg-rose-500' },
+  { type: '填空题', color: 'bg-cyan-500' },
+  { type: '简答题', color: 'bg-indigo-500' }
+];
+
+const questionScores = [
+  { label: 'Q1', score: 85, color: '#6366f1' },
+  { label: 'Q2', score: 72, color: '#818cf8' },
+  { label: 'Q3', score: 92, color: '#6366f1' },
+  { label: 'Q4', score: 65, color: '#a5b4fc' },
+  { label: 'Q5', score: 48, color: '#c7d2fe' },
+  { label: 'Q6', score: 88, color: '#6366f1' },
+  { label: 'Q7', score: 55, color: '#d4d4d8' }
+];
+
+const currentSubmitTab = ref('submitted');
+
+const submittedStudents = [
+  { name: '张敬有', className: '大数据2403', id: '2024001', submitTime: '今天 14:22', status: '已自动阅卷', score: '8.0' },
+  { name: '符式乾', className: '大数据2404', id: '2024042', submitTime: '今天 12:05', status: '已自动阅卷', score: '8.0' }
+];
+
+const unsubmittedStudents = [
+  { name: '李明', className: '大数据2403', id: '2024002' },
+  { name: '王华', className: '大数据2403', id: '2024003' },
+  { name: '刘洋', className: '大数据2404', id: '2024043' }
 ];
 
 let draggingItem = null;
@@ -253,17 +594,57 @@ const onDrop = (e) => {
   if (!draggingItem) return;
   const canvasElement = document.querySelector('.node-canvas-bg');
   const rect = canvasElement.getBoundingClientRect();
-  // 优化 ID 生成方式，确保唯一性
   const uniqueId = `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  
+  const defaultData = getDefaultQuestionData(draggingItem.type);
+  
   nodes.value.push({
     id: uniqueId,
     type: draggingItem.type,
     color: draggingItem.color,
     x: Math.max(0, mousePos.x - rect.left - 100),
     y: Math.max(0, mousePos.y - rect.top - 40),
-    content: ''
+    data: defaultData,
+    answer: null
   });
   draggingItem = null;
+};
+
+const getDefaultQuestionData = (type) => {
+  const templates = {
+    '单选题': {
+      title: '请输入单选题题目内容...',
+      options: ['选项 A', '选项 B', '选项 C', '选项 D'],
+      isMultiple: false
+    },
+    '多选题': {
+      title: '请输入多选题题目内容...',
+      options: ['选项 A', '选项 B', '选项 C', '选项 D'],
+      isMultiple: true
+    },
+    '判断题': {
+      title: '请输入判断题题目内容...'
+    },
+    '代码填空': {
+      title: '请输入代码填空题题目内容...',
+      code: 'MOV AX, ????\nADD BX, ????\nINT 21H',
+      fields: [{ value: '' }, { value: '' }]
+    },
+    '填空题': {
+      title: '计算机基础知识填空',
+      content: '在计算机中，CPU由 ???? 和 ???? 两部分组成。内存的主要作用是 ????。',
+      correctAnswers: ['运算器', '控制器', '临时存储数据']
+    },
+    '匹配题': {
+      title: '请输入匹配题题目内容...',
+      leftItems: ['项目 A', '项目 B', '项目 C'],
+      rightItems: ['匹配项 1', '匹配项 2', '匹配项 3']
+    },
+    '简答题': {
+      title: '请输入简答题题目内容...'
+    }
+  };
+  return templates[type] || {};
 };
 
 const onNodeMouseDown = (e, index) => {
@@ -289,14 +670,11 @@ const handleNodeClick = (node, index) => {
 };
 
 const removeNode = (index) => {
-  // 1. 立即锁定状态，禁用所有节点的 transition
   isUpdating.value = true;
   
-  // 2. 在下一个渲染帧之前执行删除，确保样式已经设为 'none'
   requestAnimationFrame(() => {
     nodes.value.splice(index, 1);
     
-    // 3. 等待 DOM 更新完成后，通过双重 raf 确保浏览器已经完成重绘再恢复动画
     nextTick(() => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -317,19 +695,36 @@ const openEditor = (node, index) => {
 const saveNode = () => {
   if (drawer.currentIndex !== -1) {
     nodes.value[drawer.currentIndex] = { ...drawer.editingNode };
-    drawer.show = false;
+    closeDrawer();
   }
 };
 
 const deleteNode = () => {
   if (drawer.currentIndex !== -1) {
     removeNode(drawer.currentIndex);
-    drawer.show = false;
+    closeDrawer();
   }
+};
+
+const closeDrawer = () => {
+  drawer.show = false;
+  drawer.currentIndex = -1;
 };
 
 const saveWorkflow = () => {
   uni.showToast({ title: '保存成功', icon: 'success' });
+};
+
+const openAssignmentDetail = (title, deadline, status, participants) => {
+  selectedAssignment.title = title;
+  selectedAssignment.deadline = deadline;
+  selectedAssignment.status = status;
+  selectedAssignment.participants = participants;
+  currentView.value = 'detail';
+};
+
+const closeDetailView = () => {
+  currentView.value = 'list';
 };
 </script>
 
@@ -343,7 +738,6 @@ const saveWorkflow = () => {
   backdrop-filter: blur(16px);
 }
 .node-element {
-  /* 基础动画仅保留 transform，位置动画在 style 中动态控制 */
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
 }
 .node-element:active { cursor: grabbing; }
@@ -354,4 +748,20 @@ const saveWorkflow = () => {
   to { opacity: 1; transform: translateY(0); }
 }
 .select-none { user-select: none; }
+
+.view-transition {
+  transition: all 0.5s ease-in-out;
+}
+.view-hidden {
+  opacity: 0;
+  transform: translateY(20px);
+  pointer-events: none;
+  height: 0;
+  overflow: hidden;
+}
+.view-active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
 </style>
