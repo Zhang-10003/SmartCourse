@@ -1,12 +1,12 @@
 <template>
   <div class="match-ui-container">
-    <div v-if="question.title" class="question-title-container">
+    <div v-if="question.question_title" class="question-title-container">
       <div class="tag-row">
         <span class="tag">匹配题</span>
       </div>
       <div class="title-row">
         <span class="question-index">{{ index }}.</span>
-        <span class="question-text">{{ question.title }}</span>
+        <span class="question-text">{{ question.question_title }}</span>
       </div>
     </div>
     

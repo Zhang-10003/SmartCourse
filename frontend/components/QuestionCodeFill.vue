@@ -6,7 +6,7 @@
       </div>
       <div class="title-row">
         <span class="question-index">{{ data.index }}.</span>
-        <span class="question-text" v-html="data.question.title"></span>
+        <span class="question-text" v-html="data.question.question_title"></span>
       </div>
     </div>
 
