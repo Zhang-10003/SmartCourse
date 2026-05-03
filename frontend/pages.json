@@ -43,10 +43,6 @@
 			{
 			  "path": "pages/teacher/index",
 			  "style": { "navigationStyle": "custom" }
-			},
-			{
-			  "path": "pages/teacher/list",
-			  "style": { "navigationStyle": "custom" }
 			}
 	],
 	"globalStyle": {

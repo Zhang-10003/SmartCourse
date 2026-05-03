@@ -1,0 +1,14 @@
+# Ignore test directory
+test/
+.idea/
+.venv/
+backend/alembic/
+alembic.ini
+__pycache__/
+*.pyc
+frontend/unpackage/
+frontend/pages/test/
+frontend/node_modules/
+frontend/static/
+backend/check_users.py
+backend/environment.yml
