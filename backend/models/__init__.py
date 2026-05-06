@@ -35,5 +35,6 @@ class Base(DeclarativeBase):
     })
 
 from .user import User
-
+from .teacher import Teacher
+from .student import Student
 __all__ = ['engine', 'AsyncSessionFactory', 'Base', 'User']

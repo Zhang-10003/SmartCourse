@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
 
 from . import Base
 
@@ -10,4 +11,7 @@ class User(Base):
     user_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     password = Column(String(100), nullable=False)  # 明文密码，不需要哈希
-    user_type = Column(Integer, nullable=False)  # 用户类型
+    user_type = Column(Integer, nullable=False)  # 用户类型 0是教师，1是学生
+    
+    student = relationship("Student", back_populates="user", uselist=False)
+    teacher = relationship("Teacher", back_populates="user", uselist=False)
