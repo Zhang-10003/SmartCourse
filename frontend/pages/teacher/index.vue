@@ -446,11 +446,10 @@
           </view>
 
           <view v-else-if="drawer.editingNode.type === '匹配题'">
-            <QuestionMatching 
+            <QuestionMatchingEditor 
               :index="drawer.currentIndex + 1"
-              :question="drawer.editingNode.data"
-              :status="'typing'"
-              @answer-change="(val) => drawer.editingNode.answer = val"
+              :modelValue="drawer.editingNode.data"
+              @update:modelValue="(val) => drawer.editingNode.data = val"
             />
           </view>
 
@@ -478,7 +477,7 @@ import QuestionMultipleChoiceEditor from '@/components/QuestionMultipleChoiceEdi
 import QuestionTrueFalseEditor from '@/components/QuestionTrueFalseEditor.vue';
 import QuestionCodeFillEditor from '@/components/QuestionCodeFillEditor.vue';
 import QuestionFillBlankEditor from '@/components/QuestionFillBlankEditor.vue';
-import QuestionMatching from '@/components/QuestionMatching.vue';
+import QuestionMatchingEditor from '@/components/QuestionMatchingEditor.vue';
 import QuestionShortAnswerEditor from '@/components/QuestionShortAnswerEditor.vue';
 import AssignmentCard from '@/components/AssignmentCard.vue';
 
@@ -636,9 +635,13 @@ const getDefaultQuestionData = (type) => {
       correctAnswers: ['运算器', '控制器', '临时存储数据']
     },
     '匹配题': {
-      title: '请输入匹配题题目内容...',
-      leftItems: ['项目 A', '项目 B', '项目 C'],
-      rightItems: ['匹配项 1', '匹配项 2', '匹配项 3']
+      title: '请输入匹配题的整体题目描述或指导语...',
+      pairs: [
+        { left: '', right: '' },
+        { left: '', right: '' },
+        { left: '', right: '' }
+      ],
+      analysis: ''
     },
     '简答题': {
       title: '请输入简答题题目内容...'
