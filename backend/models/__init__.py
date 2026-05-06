@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import MetaData
 
-# 创建异步引擎
 engine = create_async_engine(
     DATABASE_URL,
     echo=True,
@@ -16,19 +15,16 @@ engine = create_async_engine(
 )
 
 AsyncSessionFactory = sessionmaker(
-    bind=engine,  # Engine或者子类对象
-    expire_on_commit=False,  # 是否在执行commit操作后session就过期
-    class_=AsyncSession, #session类的替代
-    autoflush=True   # 是否在查找之前flush
-    )
+    bind=engine,
+    expire_on_commit=False,
+    class_=AsyncSession,
+    autoflush=True
+)
 
 class Base(DeclarativeBase):
     metadata = MetaData(naming_convention={
-        # ix:index
         "ix":'ix_%(column_0_label)s',
-        # un:
         "uq":'uq_%(table_name)s_%(column_0_name)s',
-        #
         "ck":'ck_%(table_name)s_%(constraint_name)s',
         "fk":'fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s',
         "pk":'pk_%(table_name)s',
@@ -37,4 +33,10 @@ class Base(DeclarativeBase):
 from .user import User
 from .teacher import Teacher
 from .student import Student
-__all__ = ['engine', 'AsyncSessionFactory', 'Base', 'User']
+from .assignment import Assignment
+from .assignment_share import AssignmentShare
+from .question import Question
+from .submission import Submission
+from .student_assignment import StudentAssignment
+from .student_answer import StudentAnswer
+__all__ = ['engine', 'AsyncSessionFactory', 'Base', 'User', 'Teacher', 'Student', 'Assignment', 'AssignmentShare', 'Question', 'Submission', 'StudentAssignment', 'StudentAnswer']

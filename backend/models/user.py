@@ -15,3 +15,4 @@ class User(Base):
     
     student = relationship("Student", back_populates="user", uselist=False)
     teacher = relationship("Teacher", back_populates="user", uselist=False)
+    assignments = relationship("Assignment", back_populates="teacher")
