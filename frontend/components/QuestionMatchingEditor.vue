@@ -19,8 +19,8 @@
     <div class="editor-main-layout">
       <div class="pairs-edit-container">
         <div class="pairs-header-row">
-          <div class="header-label column-left">左侧条目 (Item A)</div>
-          <div class="header-label column-right">右侧条目 (Item B - 默认正确答案)</div>
+          <div class="header-label column-left">左侧条目</div>
+          <div class="header-label column-right">右侧条目(默认正确答案)</div>
           <div class="header-label column-action"></div>
         </div>
 
@@ -38,7 +38,7 @@
               v-model="pair.left"
               type="text"
               class="pair-text-input"
-              placeholder="输入左侧条目内容"
+              placeholder="输入左侧内容"
             />
           </div>
 

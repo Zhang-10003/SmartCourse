@@ -1,8 +1,29 @@
 <template>
   <view class="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <view 
+      class="fixed top-0 left-0 right-0 z-50 flex justify-center pointer-events-none"
+      :class="toast.show ? 'opacity-100' : 'opacity-0'"
+      style="transition: opacity 0.3s ease;"
+    >
+      <view 
+        class="bg-gray-800 text-white px-6 py-3 rounded-lg shadow-lg mt-4 flex items-center gap-2"
+        :style="toast.show ? 'transform: translateY(0);' : 'transform: translateY(-20px);'"
+      >
+        <svg v-if="toast.type === 'success'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+          <polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+        <svg v-else-if="toast.type === 'error'" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10" />
+          <line x1="15" y1="9" x2="9" y2="15" />
+          <line x1="9" y1="9" x2="15" y2="15" />
+        </svg>
+        <span class="text-sm font-medium">{{ toast.message }}</span>
+      </view>
+    </view>
     
     <aside class="w-20 lg:w-64 bg-white/70 backdrop-blur-xl border-r border-slate-200 flex flex-col py-8 z-10 transition-all">
-      <view class="mb-12 font-bold text-xl text-indigo-600 tracking-tighter text-center">SmartCourse.</view>
+      <view class="mb-12 font-bold text-xl text-indigo-600 tracking-tighter text-center">SmartCourse</view>
       <nav class="flex-1 px-4 space-y-3">
         <view 
           @click="currentTab = 'design'" 
@@ -31,7 +52,7 @@
             <p class="text-slate-500 mt-2">拖拽左侧题型至画布，已在画布的题型可直接拖动位置。</p>
           </view>
           <view class="flex gap-4">
-            <button class="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-semibold shadow-sm hover:bg-slate-50 transition-all">发布作业</button>
+            <button @click="openShareModal" class="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-semibold shadow-sm hover:bg-slate-50 transition-all">发布作业</button>
             <button @click="saveWorkflow" class="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">保存工作流</button>
           </view>
         </header>
@@ -467,6 +488,24 @@
         </view>
       </view>
     </view>
+
+    <view class="share-modal-overlay" :class="{ active: shareModal.show }" @click="handleShareOverlayClick">
+      <view class="share-modal">
+        <button class="share-modal-close" @click="closeShareModal">&times;</button>
+        
+        <h3 class="share-modal-title">分享链接</h3>
+        <p class="share-modal-desc">链接已生成，您可以复制或直接点击确定</p>
+        
+        <view class="share-modal-action">
+          <input type="text" class="share-modal-url" id="shareUrlInput" :value="shareModal.url" readonly />
+          <button class="share-modal-btn share-modal-copy" :class="{ copied: shareModal.copied }" @click="copyShareLink">
+            {{ shareModal.copied ? '已复制' : '复制' }}
+          </button>
+          <button class="share-modal-btn share-modal-confirm" @click="confirmShare">确定</button>
+        </view>
+      </view>
+    </view>
+
   </view>
 </template>
 
@@ -490,6 +529,18 @@ const selectedAssignment = reactive({
   deadline: '',
   status: '',
   participants: []
+});
+
+const shareModal = reactive({
+  show: false,
+  url: '',
+  copied: false
+});
+
+const toast = reactive({
+  show: false,
+  message: '',
+  type: 'success'
 });
 
 const drawer = reactive({
@@ -714,8 +765,134 @@ const closeDrawer = () => {
   drawer.currentIndex = -1;
 };
 
+const showToast = (message, type = 'success') => {
+  toast.message = message;
+  toast.type = type;
+  toast.show = true;
+  setTimeout(() => {
+    toast.show = false;
+  }, 2000);
+};
+
 const saveWorkflow = () => {
-  uni.showToast({ title: '保存成功', icon: 'success' });
+  showToast('保存成功');
+};
+
+const openShareModal = () => {
+  console.log('========== 作业题目数据 (questions表格式) ==========');
+  
+  const typeMapping = {
+    '单选题': 'choice',
+    '多选题': 'multiple_choice',
+    '判断题': 'true_false',
+    '代码填空': 'code_fill',
+    '填空题': 'fill_blank',
+    '匹配题': 'matching',
+    '简答题': 'short_answer'
+  };
+  
+  nodes.value.forEach((node, index) => {
+    const data = node.data;
+    const questionRecord = {
+      question_id: index + 1,
+      assignment_id: 1,
+      type: typeMapping[node.type] || node.type.toLowerCase().replace(/\s+/g, '_'),
+      question_title: data.title || data.question_title || '',
+      options: null,
+      content: null,
+      code: null,
+      fields: null,
+      left_items: null,
+      right_items: null,
+      correct_answers: null,
+      is_multiple: node.type === '多选题' ? true : false,
+      analysis: data.analysis || '',
+      score: data.score || 10,
+      sort_order: index
+    };
+    
+    if (node.type === '单选题') {
+      questionRecord.options = JSON.stringify(data.options || []);
+      const answer = data.answer !== undefined && data.answer !== null ? data.answer : (node.answer !== undefined && node.answer !== null ? node.answer : [0]);
+      questionRecord.correct_answers = JSON.stringify(Array.isArray(answer) ? answer : [answer]);
+    } else if (node.type === '多选题') {
+      questionRecord.options = JSON.stringify(data.options || []);
+      const answer = data.answer !== undefined && data.answer !== null ? data.answer : (node.answer !== undefined && node.answer !== null ? node.answer : []);
+      questionRecord.correct_answers = JSON.stringify(Array.isArray(answer) ? answer : []);
+    } else if (node.type === '判断题') {
+      const answer = data.answer !== undefined && data.answer !== null ? data.answer : (node.answer !== undefined && node.answer !== null ? node.answer : false);
+      questionRecord.correct_answers = answer ? 'true' : 'false';
+    } else if (node.type === '代码填空') {
+      questionRecord.code = data.code || '';
+      const fields = data.fields || [];
+      const processedFields = fields.map(f => ({
+        value: f.value || '',
+        answer: f.answer || ''
+      }));
+      const answers = processedFields.map(f => f.answer);
+      questionRecord.fields = JSON.stringify(processedFields);
+      questionRecord.correct_answers = JSON.stringify(answers);
+    } else if (node.type === '填空题') {
+      questionRecord.content = data.content || '';
+      const blanks = (data.content || '').split('????').length - 1;
+      const existingAnswers = data.correctAnswers || [];
+      const answers = Array.from({ length: blanks }, (_, i) => existingAnswers[i] || '');
+      questionRecord.correct_answers = JSON.stringify(answers);
+    } else if (node.type === '匹配题') {
+      const pairs = data.pairs || [];
+      questionRecord.left_items = JSON.stringify(pairs.map(p => p.left || ''));
+      questionRecord.right_items = JSON.stringify(pairs.map(p => p.right || ''));
+      const correctAnswers = pairs.map((_, idx) => ({ l: idx, r: idx }));
+      questionRecord.correct_answers = JSON.stringify(correctAnswers);
+    } else if (node.type === '简答题') {
+      const answer = data.standardAnswer || data.answer || '';
+      questionRecord.correct_answers = JSON.stringify({ standardAnswer: answer });
+    }
+    
+    console.log(`\n${index + 1}. ${node.type} (${typeMapping[node.type]})`);
+    console.log('----------------------------------------');
+    console.log(JSON.stringify(questionRecord, (key, value) => {
+      return value === null ? undefined : value;
+    }, 2));
+  });
+  
+  console.log('\n====================================');
+  console.log(`共 ${nodes.value.length} 道题目`);
+  
+  shareModal.url = 'https://smartcourse.com/share/' + generateShareCode();
+  shareModal.copied = false;
+  shareModal.show = true;
+};
+
+const generateShareCode = () => {
+  return 'item-' + Date.now().toString(36) + Math.random().toString(36).substr(2, 9);
+};
+
+const closeShareModal = () => {
+  shareModal.show = false;
+};
+
+const handleShareOverlayClick = (e) => {
+  if (e.target === e.currentTarget) {
+    closeShareModal();
+  }
+};
+
+const copyShareLink = async () => {
+  try {
+    await navigator.clipboard.writeText(shareModal.url);
+    shareModal.copied = true;
+    setTimeout(() => {
+      shareModal.copied = false;
+    }, 1500);
+  } catch (err) {
+    uni.showToast({ title: '复制失败', icon: 'none' });
+  }
+};
+
+const confirmShare = () => {
+  closeShareModal();
+  showToast('分享成功');
 };
 
 const openAssignmentDetail = (title, deadline, status, participants) => {
@@ -766,5 +943,131 @@ const closeDetailView = () => {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+}
+
+.share-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 1000;
+}
+
+.share-modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.share-modal {
+  background-color: #ffffff;
+  padding: 30px 24px;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+  width: 90%;
+  max-width: 480px;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.share-modal-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  font-size: 20px;
+  background: none;
+  border: none;
+  color: #999;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.share-modal-close:hover {
+  color: #666;
+}
+
+.share-modal-title {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #333;
+  text-align: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.share-modal-desc {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.share-modal-action {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.share-modal-url {
+  flex: 1;
+  background-color: #ffffff;
+  border: 1px solid #ced4da;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #495057;
+  border-radius: 6px;
+  outline: none;
+  box-sizing: border-box;
+  height: 40px;
+}
+
+.share-modal-url:focus {
+  border-color: #80bdff;
+}
+
+.share-modal-btn {
+  padding: 10px 20px;
+  font-size: 14px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s;
+  box-sizing: border-box;
+  height: 40px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.share-modal-copy {
+  background-color: #28a745;
+  color: white;
+}
+
+.share-modal-copy:hover {
+  background-color: #218838;
+}
+
+.share-modal-copy.copied {
+  background-color: #17a2b8;
+}
+
+.share-modal-confirm {
+  background-color: #007bff;
+  color: white;
+}
+
+.share-modal-confirm:hover {
+  background-color: #0056b3;
 }
 </style>
