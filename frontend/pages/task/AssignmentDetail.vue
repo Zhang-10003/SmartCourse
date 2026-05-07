@@ -5,7 +5,8 @@
       <view class="nav-content">
         <text class="back-icon" @click="goBack"></text>
         <text class="nav-title">{{ taskInfo.title }}</text>
-        <view class="nav-right"></view> </view>
+        <view class="nav-right"></view>
+      </view>
     </view>
 
     <view class="info-banner">
@@ -25,21 +26,58 @@
     >
       <swiper-item v-for="(q, index) in questions" :key="index">
         <scroll-view scroll-y class="scroll-v">
-          <component 
-            :is="getComponent(q.type)" 
-            v-if="q.type !== 'code_fill'"
-            :question="q" 
+          <QuestionMultipleChoice
+            v-if="q.type === 'choice'"
             :index="index + 1"
+            :question="q"
             :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
-            :correctAnswer="q.correctAnswer"
-            :correctAnswers="q.correctAnswers"
-            v-model="q.userAnswer" 
+            :correct-answer="q.correctAnswers"
+            :model-value="q.userAnswer"
+            @update:model-value="(val) => q.userAnswer = val"
           />
-          <component 
-            :is="getComponent(q.type)" 
-            v-else
-            :data="{ index: index + 1, question: q }"
+          
+          <QuestionTrueFalse
+            v-else-if="q.type === 'true_false'"
+            :index="index + 1"
+            :question="q"
             :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
+            :correct-answer="q.correctAnswers"
+            :model-value="q.userAnswer"
+            @update:model-value="(val) => q.userAnswer = val"
+          />
+          
+          <QuestionFillBlank
+            v-else-if="q.type === 'fill_blank'"
+            :index="index + 1"
+            :question="q"
+            :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
+            :correct-answers="q.correctAnswers"
+            @answer-change="(val) => q.userAnswer = val"
+          />
+          
+          <QuestionShortAnswer
+            v-else-if="q.type === 'short_answer'"
+            :index="index + 1"
+            :question="q"
+            :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
+            :correct-answer="q.correctAnswers"
+            :model-value="q.userAnswer"
+            @update:model-value="(val) => q.userAnswer = val"
+          />
+          
+          <QuestionMatching
+            v-else-if="q.type === 'matching'"
+            :index="index + 1"
+            :question="q"
+            :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
+            :correct-answers="q.correctAnswers"
+            :model-value="q.userAnswer"
+            @update:model-value="(val) => q.userAnswer = val"
+          />
+          
+          <QuestionCodeFill
+            v-else-if="q.type === 'code_fill'"
+            :data="{ index: index + 1, question: q }"
           />
         </scroll-view>
       </swiper-item>
@@ -75,51 +113,51 @@ const taskInfo = ref({
 
 const questions = ref([
   { 
-    type: 'choice', 
-    isMultiple: false, // 单选题
-    title: '以下哪个协议属于传输层？', 
-    options: ['TCP', 'IP', 'HTTP', 'DNS'], 
-    userAnswer: [],    // 初始值必须是数组，否则子组件的 includes 会报错
-    correctAnswer: [0] // 正确答案是 TCP
+    type: 'choice',
+    question_title: '以下哪个协议属于传输层？',
+    options: ['TCP', 'IP', 'HTTP', 'DNS'],
+    isMultiple: false,
+    userAnswer: [],
+    correctAnswers: [0]
   },
   { 
-    type: 'choice', 
-    isMultiple: true,  // 多选题
-    title: '哪些是网络层协议？', 
-    options: ['IP', 'ICMP', 'UDP', 'ARP'], 
-    userAnswer: [], 
-    correctAnswer: [0, 1, 3] // 正确答案是 IP, ICMP, ARP
+    type: 'choice',
+    question_title: '哪些是网络层协议？',
+    options: ['IP', 'ICMP', 'UDP', 'ARP'],
+    isMultiple: true,
+    userAnswer: [],
+    correctAnswers: [0, 1, 3]
   },
   { 
-    type: 'true_false', 
-    title: 'TCP是一种无连接的协议。', 
-    userAnswer: null, 
-    correctAnswer: false // 正确答案是错误
+    type: 'true_false',
+    question_title: 'TCP是一种无连接的协议。',
+    userAnswer: null,
+    correctAnswers: false
   },
   { 
-    type: 'fill_blank', 
-    content: 'OSI模型分为????层，其中网络层的主要功能是????。', 
-    userAnswer: [], 
-    correctAnswers: ['7', '路由选择'] // 正确答案
+    type: 'fill_blank',
+    content: 'OSI模型分为????层，其中网络层的主要功能是????。',
+    userAnswer: [],
+    correctAnswers: ['7', '路由选择']
   },
   { 
-    type: 'short_answer', 
-    title: '简述TCP三次握手的过程。', 
-    userAnswer: '', 
-    correctAnswer: 'TCP三次握手过程：1. 客户端发送SYN包；2. 服务器发送SYN+ACK包；3. 客户端发送ACK包。' // 正确答案
+    type: 'short_answer',
+    question_title: '简述TCP三次握手的过程。',
+    userAnswer: '',
+    correctAnswers: 'TCP三次握手过程：1. 客户端发送SYN包；2. 服务器发送SYN+ACK包；3. 客户端发送ACK包。'
   },
   { 
-    type: 'matching', 
-    title: '将协议与其对应的层次匹配', 
-    leftItems: ['TCP', 'IP', 'HTTP', 'ARP'], 
-    rightItems: ['传输层', '网络层', '应用层', '网络层'], 
-    userAnswer: [], 
-    correctAnswers: [{ l: 0, r: 0 }, { l: 1, r: 1 }, { l: 2, r: 2 }, { l: 3, r: 3 }] // 正确答案
+    type: 'matching',
+    question_title: '将协议与其对应的层次匹配',
+    leftItems: ['TCP', 'IP', 'HTTP', 'ARP'],
+    rightItems: ['传输层', '网络层', '应用层', '网络层'],
+    userAnswer: [],
+    correctAnswers: [{ l: 0, r: 0 }, { l: 1, r: 1 }, { l: 2, r: 2 }, { l: 3, r: 1 }]
   },
   { 
-      type: 'code_fill', 
-      title: '程序跟踪分析：<br>假设初始 <b>SP = 2000H</b>。请分析下方汇编片段，填写指令执行后对应的寄存器状态。', 
-      code: `start: 
+    type: 'code_fill',
+    question_title: '程序跟踪分析',
+    code: `start: 
     mov ax, 1000h ; 设置起始段地址
     mov ss, ax    ; 设置堆栈段
     mov sp, 0020h ; 初始 SP = 0020H
@@ -136,41 +174,30 @@ const questions = ref([
     ret           ; 子程序返回
       IP2=????
       SP3=????
-  end start`, 
-      fields: [
-        { label: "SP1", value: "" },
-        { label: "IP1", value: "" },
-        { label: "SP2", value: "" },
-        { label: "IP2", value: "" },
-        { label: "SP3", value: "" }
-      ],
-      userAnswer: [], // 用于存储最终答案
-      correctAnswers: ['001Eh', '010BH', '001Ch', '010BH', '0020H'] // 示例正确答案
-    }
+  end start`,
+    fields: [
+      { label: "SP1", value: "" },
+      { label: "IP1", value: "" },
+      { label: "SP2", value: "" },
+      { label: "IP2", value: "" },
+      { label: "SP3", value: "" }
+    ],
+    userAnswer: [],
+    correctAnswers: ['001Eh', '010BH', '001Ch', '010BH', '0020H']
+  }
 ]);
 
-const getComponent = (type) => {
-  const map = {
-    'choice': QuestionMultipleChoice,
-    'true_false': QuestionTrueFalse,
-    'fill_blank': QuestionFillBlank,
-    'short_answer': QuestionShortAnswer,
-    'matching': QuestionMatching,
-    'code_fill': QuestionCodeFill
-  };
-  return map[type];
+const prev = () => { 
+  if (currentIndex.value > 0) currentIndex.value--; 
 };
 
-const prev = () => { if (currentIndex.value > 0) currentIndex.value--; };
 const next = () => {
-  // 必须加 .value，否则变量不会响应式更新
   if (currentIndex.value < questions.value.length - 1) {
     currentIndex.value++; 
   }
 };
 
 const handleSubmit = () => {
-  // 打印数据检查 v-model 是否生效
   console.log('用户答案汇总：', questions.value.map(q => q.userAnswer));
   
   if (taskInfo.value.status === 'finished') {
@@ -196,10 +223,9 @@ const goBack = () => uni.navigateBack();
   height: 100vh;
   display: flex;
   flex-direction: column;
-  background-color: #ffffff; // 改为白色，确保缝隙不可见
+  background-color: #ffffff;
 }
 
-/* 1. 模拟图二样式的导航栏 */
 .custom-navbar {
   background-color: #ffffff;
   .status-bar { height: var(--status-bar-height); }
@@ -220,12 +246,11 @@ const goBack = () => uni.navigateBack();
   }
 }
 
-/* 进度显示区 */
 .info-banner {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 30rpx 40rpx 0rpx; // 底部 padding 设为 0
+  padding: 30rpx 40rpx 0rpx;
   background-color: #ffffff;
   
   .progress-box {
@@ -234,18 +259,19 @@ const goBack = () => uni.navigateBack();
   }
   .time-left { color: #ff5e5e; font-size: 28rpx; font-weight: 500; }
 }
+
 .question-swiper { 
   flex: 1; 
   background-color: #ffffff;
 }
+
 .scroll-v { 
   height: 100%; 
-  padding: 0rpx 30rpx 30rpx; // 顶部 padding 设为 0
+  padding: 0rpx 30rpx 30rpx;
   box-sizing: border-box; 
   background-color: #ffffff;
 }
 
-/* 底部按钮样式优化 */
 .footer {
   background: #fff;
   padding: 20rpx 40rpx calc(20rpx + env(safe-area-inset-bottom));

@@ -81,7 +81,6 @@ const goToRank = (index) => {
   min-height: 100vh;
 }
 
-/* 顶部固定区域样式 */
 .fixed-header {
   position: fixed;
   top: 0;
@@ -117,7 +116,6 @@ const goToRank = (index) => {
       padding: 0 12px;
       .search-icon { font-size: 14px; margin-right: 6px; }
       .search-input { flex: 1; font-size: 14px; }
-      .scan-icon { font-size: 16px; color: #666; margin-left: 6px; }
     }
 
     .action-icons {
@@ -139,7 +137,6 @@ const goToRank = (index) => {
   }
 }
 
-/* 内容区域样式 */
 .main-content {
   padding-top: calc(var(--status-bar-height) + 52px);
   padding-left: 15px;
@@ -155,26 +152,17 @@ const goToRank = (index) => {
   }
 }
 
-
 .card {
   background-color: #ffffff;
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 15px;
-  
-  /* --- 修正后的核心属性 --- */
-  box-sizing: border-box; 
-  /* 不要写 width: 100%; 让它自动填充 */
-  width: auto;            
-  
-  /* 确保外层没有负 margin 干扰 */
+  box-sizing: border-box;
+  width: auto;
   margin-left: 0;
   margin-right: 0;
-  
-  /* 阴影和边框 */
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05); 
   border: 1rpx solid #f0f0f0; 
-  /* ---------------------- */
 
   .card-header { 
     margin-bottom: 10px; 
@@ -182,7 +170,7 @@ const goToRank = (index) => {
       font-size: 12px; 
       padding: 2px 8px; 
       border-radius: 4px; 
-      display: inline-block; /* 确保标签是行内块 */
+      display: inline-block;
       &.processing { background: #e8f2ff; color: #007aff; } 
       &.submitted { background: #e7f7ef; color: #07c160; } 
       &.expired { background: #f2f2f2; color: #999; } 
@@ -194,9 +182,7 @@ const goToRank = (index) => {
     font-weight: bold; 
     color: #333; 
     margin-bottom: 12px;
-    
-    /* 彻底修复换行问题 */
-    word-wrap: break-word; /* 兼容性更好 */
+    word-wrap: break-word;
     word-break: break-all;
     white-space: normal;
     line-height: 1.4;
@@ -207,7 +193,7 @@ const goToRank = (index) => {
 .safe-bottom { height: 20px; }
 .card-footer {
   display: flex;
-  justify-content: space-between; /* 左右分布 */
+  justify-content: space-between;
   align-items: center;
   margin-top: 10px;
 
@@ -219,14 +205,14 @@ const goToRank = (index) => {
   .rank-link {
     display: flex;
     align-items: center;
-    background-color: #fff7e6; // 淡淡的金黄色背景
+    background-color: #fff7e6;
     padding: 4px 10px;
-    border-radius: 100px; // 圆角胶囊形状
+    border-radius: 100px;
     border: 1px solid #ffe58f;
     transition: all 0.2s;
 
     &:active {
-      opacity: 0.7; // 点击时的反馈
+      opacity: 0.7;
       transform: scale(0.95);
     }
 
@@ -237,7 +223,7 @@ const goToRank = (index) => {
 
     .rank-text {
       font-size: 12px;
-      color: #d48806; // 琥珀金，代表荣誉
+      color: #d48806;
       font-weight: 500;
     }
   }

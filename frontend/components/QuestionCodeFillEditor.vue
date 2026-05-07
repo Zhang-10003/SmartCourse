@@ -67,22 +67,6 @@ INT 21H"
         </div>
       </div>
     </div>
-
-    <!-- 解析部分 -->
-    <div class="feedback-section">
-      <div class="section-divider"></div>
-      <div class="feedback-header">
-        <span class="tag answer-tag">题目解析</span>
-      </div>
-      <div class="feedback-card">
-        <textarea 
-          v-model="localQuestion.analysis"
-          class="analysis-textarea"
-          placeholder="请输入该代码段的逻辑说明..."
-          spellcheck="false"
-        ></textarea>
-      </div>
-    </div>
   </div>
 </template>
 

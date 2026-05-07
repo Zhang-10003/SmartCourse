@@ -2,10 +2,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from models import engine, Base
 from routers.auth_router import router as auth_router
+from routers.assignment_router import router as assignment_router
 
 app = FastAPI()
 
-# 添加CORS中间件
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,15 +14,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 添加认证路由
 app.include_router(auth_router)
+app.include_router(assignment_router)
 
 
 @app.on_event("startup")
 async def startup_event():
-    """应用启动时初始化数据库"""
     async with engine.begin() as conn:
-        # 创建所有表
         await conn.run_sync(Base.metadata.create_all)
 
 

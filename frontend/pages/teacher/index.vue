@@ -493,14 +493,42 @@
       <view class="share-modal">
         <button class="share-modal-close" @click="closeShareModal">&times;</button>
         
-        <h3 class="share-modal-title">分享链接</h3>
-        <p class="share-modal-desc">链接已生成，您可以复制或直接点击确定</p>
+        <h2 class="share-modal-title">作业发布</h2>
         
-        <view class="share-modal-action">
-          <input type="text" class="share-modal-url" id="shareUrlInput" :value="shareModal.url" readonly />
-          <button class="share-modal-btn share-modal-copy" :class="{ copied: shareModal.copied }" @click="copyShareLink">
-            {{ shareModal.copied ? '已复制' : '复制' }}
-          </button>
+        <view class="share-modal-form-group">
+          <span class="share-modal-label">分享链接</span>
+          <view class="share-modal-link-section">
+            <input type="text" class="share-modal-url" id="shareUrlInput" :value="shareModal.url" readonly />
+            <button class="share-modal-btn share-modal-copy" :class="{ copied: shareModal.copied }" @click="copyShareLink">
+              {{ shareModal.copied ? '已复制' : '复制链接' }}
+            </button>
+          </view>
+        </view>
+        
+        <view class="share-modal-form-group">
+          <label for="task-title" class="share-modal-label">作业标题</label>
+          <input type="text" id="task-title" class="share-modal-input" v-model="shareModal.assignmentTitle" placeholder="请输入作业标题" />
+        </view>
+        
+        <view class="share-modal-form-group">
+          <label for="due-date" class="share-modal-label">截止时间</label>
+          <view class="datetime-row">
+            <picker mode="date" :value="shareModal.deadline.slice(0, 10)" @change="onDateChange">
+              <view class="share-modal-input date-picker">
+                <text>{{ shareModal.deadline.slice(0, 10) || '选择日期' }}</text>
+                <text class="date-picker-icon"></text>
+              </view>
+            </picker>
+            <picker mode="time" :value="shareModal.deadline.slice(11, 16)" @change="onTimeChange">
+              <view class="share-modal-input time-picker">
+                <text>{{ shareModal.deadline.slice(11, 16) || '选择时间' }}</text>
+                <text class="date-picker-icon"></text>
+              </view>
+            </picker>
+          </view>
+        </view>
+        
+        <view class="share-modal-footer">
           <button class="share-modal-btn share-modal-confirm" @click="confirmShare">确定</button>
         </view>
       </view>
@@ -511,6 +539,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue';
+import CONFIG from '@/utils/config.js';
 import QuestionChoiceEditor from '@/components/QuestionChoiceEditor.vue';
 import QuestionMultipleChoiceEditor from '@/components/QuestionMultipleChoiceEditor.vue';
 import QuestionTrueFalseEditor from '@/components/QuestionTrueFalseEditor.vue';
@@ -531,11 +560,41 @@ const selectedAssignment = reactive({
   participants: []
 });
 
+const now = new Date();
+const defaultDeadline = now.toISOString().slice(0, 16);
+
 const shareModal = reactive({
   show: false,
   url: '',
-  copied: false
+  copied: false,
+  assignmentTitle: '新建作业',
+  deadline: defaultDeadline
 });
+
+const formatDeadline = (deadline) => {
+  if (!deadline) return '请选择日期时间';
+  const date = new Date(deadline.replace('T', ' '));
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}/${month}/${day} ${hours}:${minutes}`;
+};
+
+const onDateChange = (e) => {
+  const date = e.detail.value;
+  const time = shareModal.deadline ? shareModal.deadline.slice(11, 16) : '23:59';
+  shareModal.deadline = `${date}T${time}`;
+};
+
+const onTimeChange = (e) => {
+  const time = e.detail.value;
+  const date = shareModal.deadline ? shareModal.deadline.slice(0, 10) : new Date().toISOString().slice(0, 10);
+  shareModal.deadline = `${date}T${time}`;
+};
+
+const pendingQuestions = ref([]);
 
 const toast = reactive({
   show: false,
@@ -779,7 +838,10 @@ const saveWorkflow = () => {
 };
 
 const openShareModal = () => {
-  console.log('========== 作业题目数据 (questions表格式) ==========');
+  if (nodes.value.length === 0) {
+    showToast('请先添加题目', 'error');
+    return;
+  }
   
   const typeMapping = {
     '单选题': 'choice',
@@ -791,11 +853,9 @@ const openShareModal = () => {
     '简答题': 'short_answer'
   };
   
-  nodes.value.forEach((node, index) => {
+  const questions = nodes.value.map((node, index) => {
     const data = node.data;
-    const questionRecord = {
-      question_id: index + 1,
-      assignment_id: 1,
+    const question = {
       type: typeMapping[node.type] || node.type.toLowerCase().replace(/\s+/g, '_'),
       question_title: data.title || data.question_title || '',
       options: null,
@@ -812,56 +872,145 @@ const openShareModal = () => {
     };
     
     if (node.type === '单选题') {
-      questionRecord.options = JSON.stringify(data.options || []);
+      question.options = JSON.stringify(data.options || []);
       const answer = data.answer !== undefined && data.answer !== null ? data.answer : (node.answer !== undefined && node.answer !== null ? node.answer : [0]);
-      questionRecord.correct_answers = JSON.stringify(Array.isArray(answer) ? answer : [answer]);
+      question.correct_answers = JSON.stringify(Array.isArray(answer) ? answer : [answer]);
     } else if (node.type === '多选题') {
-      questionRecord.options = JSON.stringify(data.options || []);
+      question.options = JSON.stringify(data.options || []);
       const answer = data.answer !== undefined && data.answer !== null ? data.answer : (node.answer !== undefined && node.answer !== null ? node.answer : []);
-      questionRecord.correct_answers = JSON.stringify(Array.isArray(answer) ? answer : []);
+      question.correct_answers = JSON.stringify(Array.isArray(answer) ? answer : []);
     } else if (node.type === '判断题') {
       const answer = data.answer !== undefined && data.answer !== null ? data.answer : (node.answer !== undefined && node.answer !== null ? node.answer : false);
-      questionRecord.correct_answers = answer ? 'true' : 'false';
+      question.correct_answers = answer ? 'true' : 'false';
     } else if (node.type === '代码填空') {
-      questionRecord.code = data.code || '';
+      question.code = data.code || '';
       const fields = data.fields || [];
       const processedFields = fields.map(f => ({
         value: f.value || '',
         answer: f.answer || ''
       }));
       const answers = processedFields.map(f => f.answer);
-      questionRecord.fields = JSON.stringify(processedFields);
-      questionRecord.correct_answers = JSON.stringify(answers);
+      question.fields = JSON.stringify(processedFields);
+      question.correct_answers = JSON.stringify(answers);
     } else if (node.type === '填空题') {
-      questionRecord.content = data.content || '';
+      question.content = data.content || '';
       const blanks = (data.content || '').split('????').length - 1;
       const existingAnswers = data.correctAnswers || [];
       const answers = Array.from({ length: blanks }, (_, i) => existingAnswers[i] || '');
-      questionRecord.correct_answers = JSON.stringify(answers);
+      question.correct_answers = JSON.stringify(answers);
     } else if (node.type === '匹配题') {
       const pairs = data.pairs || [];
-      questionRecord.left_items = JSON.stringify(pairs.map(p => p.left || ''));
-      questionRecord.right_items = JSON.stringify(pairs.map(p => p.right || ''));
+      question.left_items = JSON.stringify(pairs.map(p => p.left || ''));
+      question.right_items = JSON.stringify(pairs.map(p => p.right || ''));
       const correctAnswers = pairs.map((_, idx) => ({ l: idx, r: idx }));
-      questionRecord.correct_answers = JSON.stringify(correctAnswers);
+      question.correct_answers = JSON.stringify(correctAnswers);
     } else if (node.type === '简答题') {
       const answer = data.standardAnswer || data.answer || '';
-      questionRecord.correct_answers = JSON.stringify({ standardAnswer: answer });
+      question.correct_answers = JSON.stringify({ standardAnswer: answer });
     }
     
-    console.log(`\n${index + 1}. ${node.type} (${typeMapping[node.type]})`);
-    console.log('----------------------------------------');
-    console.log(JSON.stringify(questionRecord, (key, value) => {
-      return value === null ? undefined : value;
-    }, 2));
+    return question;
   });
   
-  console.log('\n====================================');
-  console.log(`共 ${nodes.value.length} 道题目`);
+  console.log('========== 作业题目数据 ==========');
+  console.log(JSON.stringify(questions, null, 2));
+  console.log('==================================');
   
-  shareModal.url = 'https://smartcourse.com/share/' + generateShareCode();
-  shareModal.copied = false;
+  pendingQuestions.value = questions;
+  
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  const hours = String(now.getHours()).padStart(2, '0');
+  const minutes = String(now.getMinutes()).padStart(2, '0');
+  const currentDateTime = `${year}-${month}-${day}T${hours}:${minutes}`;
+  
+  shareModal.deadline = currentDateTime;
+  
+  const tempShareCode = generateShareCode();
+  shareModal.url = CONFIG.shareUrl + '/' + tempShareCode;
   shareModal.show = true;
+};
+
+const submitAssignment = async (questions) => {
+  try {
+    const deadline = shareModal.deadline ? shareModal.deadline.replace('T', ' ') + ':00' : new Date().toISOString().slice(0, 19).replace('T', ' ');
+    
+    const assignmentData = {
+      assignment_title: shareModal.assignmentTitle || '新建作业',
+      deadline: deadline,
+      status: 'ongoing'
+    };
+    
+    console.log('提交的数据:', assignmentData);
+    console.log('Token:', localStorage.getItem('token'));
+    
+    const assignmentResponse = await fetch(CONFIG.baseUrl + '/api/assignments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(assignmentData)
+    });
+    
+    console.log('响应状态:', assignmentResponse.status);
+    const assignmentResult = await assignmentResponse.json();
+    console.log('创建作业结果:', assignmentResult);
+    
+    if (!assignmentResult.success) {
+      showToast('创建作业失败: ' + (assignmentResult.message || '未知错误'), 'error');
+      return;
+    }
+    
+    const assignmentId = assignmentResult.data.assignment_id;
+    console.log('创建的作业ID:', assignmentId);
+    
+    for (let i = 0; i < questions.length; i++) {
+      const question = questions[i];
+      question.assignment_id = assignmentId;
+      console.log(`正在创建题目 ${i + 1}:`, question);
+      
+      const questionResponse = await fetch(CONFIG.baseUrl + '/api/questions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(question)
+      });
+      
+      const questionResult = await questionResponse.json();
+      console.log(`题目 ${i + 1} 创建结果:`, questionResult);
+      
+      if (!questionResult.success) {
+        showToast('创建题目失败: ' + (questionResult.message || '未知错误'), 'error');
+        return;
+      }
+    }
+    
+    const shareResponse = await fetch(CONFIG.baseUrl + '/api/shares', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ assignment_id: assignmentId, access_type: 'submit' })
+    });
+    
+    const shareResult = await shareResponse.json();
+    console.log('分享链接创建结果:', shareResult);
+    
+    if (shareResult.success) {
+      shareModal.url = CONFIG.shareUrl + '/' + shareResult.data.share_code;
+      shareModal.copied = false;
+      shareModal.show = true;
+    } else {
+      showToast('生成分享链接失败: ' + (shareResult.message || '未知错误'), 'error');
+    }
+    
+  } catch (error) {
+    console.error('发布作业失败:', error);
+    showToast('发布失败，请重试: ' + error.message, 'error');
+  }
 };
 
 const generateShareCode = () => {
@@ -890,9 +1039,84 @@ const copyShareLink = async () => {
   }
 };
 
-const confirmShare = () => {
+const confirmShare = async () => {
   closeShareModal();
-  showToast('分享成功');
+  
+  try {
+    const deadline = shareModal.deadline ? shareModal.deadline.replace('T', ' ') + ':00' : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+    
+    const assignmentData = {
+      assignment_title: shareModal.assignmentTitle || '新建作业',
+      deadline: deadline,
+      status: 'ongoing'
+    };
+    
+    console.log('提交的数据:', assignmentData);
+    
+    const assignmentResponse = await fetch('http://127.0.0.1:8000/api/assignments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(assignmentData)
+    });
+    
+    console.log('响应状态:', assignmentResponse.status);
+    const assignmentResult = await assignmentResponse.json();
+    console.log('创建作业结果:', assignmentResult);
+    
+    if (!assignmentResult.success) {
+      showToast('创建作业失败: ' + (assignmentResult.message || '未知错误'), 'error');
+      return;
+    }
+    
+    const assignmentId = assignmentResult.data.assignment_id;
+    console.log('创建的作业ID:', assignmentId);
+    
+    for (let i = 0; i < pendingQuestions.value.length; i++) {
+      const question = { ...pendingQuestions.value[i], assignment_id: assignmentId };
+      console.log(`正在创建题目 ${i + 1}:`, question);
+      
+      const questionResponse = await fetch(CONFIG.baseUrl + '/api/questions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(question)
+      });
+      
+      const questionResult = await questionResponse.json();
+      console.log(`题目 ${i + 1} 创建结果:`, questionResult);
+      
+      if (!questionResult.success) {
+        showToast('创建题目失败: ' + (questionResult.message || '未知错误'), 'error');
+        return;
+      }
+    }
+    
+    const shareResponse = await fetch(CONFIG.baseUrl + '/api/shares', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ assignment_id: assignmentId, access_type: 'submit' })
+    });
+    
+    const shareResult = await shareResponse.json();
+    console.log('分享链接创建结果:', shareResult);
+    
+    if (shareResult.success) {
+      shareModal.url = 'https://smartcourse.com/share/' + shareResult.data.share_code;
+      shareModal.copied = false;
+      showToast('发布成功');
+    } else {
+      showToast('生成分享链接失败: ' + (shareResult.message || '未知错误'), 'error');
+    }
+    
+  } catch (error) {
+    console.error('发布作业失败:', error);
+    showToast('发布失败，请重试: ' + error.message, 'error');
+  }
 };
 
 const openAssignmentDetail = (title, deadline, status, participants) => {
@@ -958,7 +1182,7 @@ const closeDetailView = () => {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
-  z-index: 1000;
+  z-index: 100;
 }
 
 .share-modal-overlay.active {
@@ -967,26 +1191,25 @@ const closeDetailView = () => {
 }
 
 .share-modal {
-  background-color: #ffffff;
-  padding: 30px 24px;
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
-  width: 90%;
-  max-width: 480px;
+  background: #ffffff;
+  width: 560px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  padding: 24px;
   position: relative;
-  box-sizing: border-box;
 }
 
 .share-modal-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  font-size: 20px;
-  background: none;
+  top: 24px;
+  right: 24px;
   border: none;
-  color: #999;
+  background: transparent;
   cursor: pointer;
+  color: #999;
+  font-size: 22px;
   line-height: 1;
+  transition: color 0.2s;
 }
 
 .share-modal-close:hover {
@@ -994,72 +1217,117 @@ const closeDetailView = () => {
 }
 
 .share-modal-title {
-  margin-top: 0;
-  margin-bottom: 10px;
-  color: #333;
-  text-align: center;
-  font-size: 18px;
+  font-size: 22px;
   font-weight: bold;
-}
-
-.share-modal-desc {
-  font-size: 14px;
-  color: #666;
-  margin-bottom: 24px;
+  color: #222222;
   text-align: center;
+  margin-bottom: 24px;
+  margin-top: 10px;
 }
 
-.share-modal-action {
+.share-modal-form-group {
+  margin-bottom: 20px;
+}
+
+.share-modal-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #444;
+  margin-bottom: 8px;
+}
+
+.share-modal-link-section {
   display: flex;
   gap: 10px;
-  align-items: center;
-  width: 100%;
 }
 
 .share-modal-url {
   flex: 1;
-  background-color: #ffffff;
-  border: 1px solid #ced4da;
-  padding: 10px 12px;
-  font-size: 14px;
-  color: #495057;
-  border-radius: 6px;
-  outline: none;
-  box-sizing: border-box;
+  background-color: #fff;
   height: 40px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s;
 }
 
 .share-modal-url:focus {
-  border-color: #80bdff;
+  border-color: #007bff;
+}
+
+.share-modal-input {
+  width: 100%;
+  height: 40px;
+  border: 1px solid #dcdfe6;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.share-modal-input:focus {
+  border-color: #007bff;
 }
 
 .share-modal-btn {
-  padding: 10px 20px;
-  font-size: 14px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.2s;
-  box-sizing: border-box;
   height: 40px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  padding: 0 24px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.share-modal-btn:hover {
+  opacity: 0.9;
 }
 
 .share-modal-copy {
   background-color: #28a745;
   color: white;
+  white-space: nowrap;
 }
 
-.share-modal-copy:hover {
-  background-color: #218838;
+.share-modal-footer {
+  margin-top: 32px;
+  margin-bottom: 8px;
+  display: flex;
+  justify-content: center;
+}
+
+.share-modal-confirm {
+  background-color: #007bff;
+  color: white;
+  min-width: 120px;
 }
 
 .share-modal-copy.copied {
   background-color: #17a2b8;
+}
+
+.datetime-row {
+  display: flex;
+  gap: 10px;
+}
+
+.date-picker,
+.time-picker {
+  flex: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.date-picker-icon {
+  font-size: 16px;
 }
 
 .share-modal-confirm {
