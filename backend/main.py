@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from models import engine, Base
 from routers.auth_router import router as auth_router
 from routers.assignment_router import router as assignment_router
+from routers.ai_router import router as ai_router
 
 app = FastAPI()
 
@@ -16,6 +17,7 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(assignment_router)
+app.include_router(ai_router)
 
 
 @app.on_event("startup")

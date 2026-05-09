@@ -521,9 +521,16 @@
 
           <view class="options-row">
             <div class="option-item">
+              <label class="form-label">题目类型</label>
+              <select v-model="aiModal.questionType" class="input-control" :disabled="drawer.currentIndex !== -1">
+                <option v-for="type in questionTypes" :key="type.value" :value="type.value">
+                  {{ type.label }}
+                </option>
+              </select>
+            </div>
+            <div class="option-item">
               <label class="form-label">难度设定</label>
               <select v-model="aiModal.difficulty" class="input-control">
-                <option>自动</option>
                 <option>简单</option>
                 <option>中等</option>
                 <option>困难</option>
@@ -670,8 +677,20 @@ const drawer = reactive({
 const aiModal = reactive({
   show: false,
   prompt: '',
-  difficulty: '自动'
+  difficulty: '中等',
+  questionType: ''
 });
+
+const questionTypes = [
+  { value: '', label: '自动' },
+  { value: '单选题', label: '单选题' },
+  { value: '多选题', label: '多选题' },
+  { value: '判断题', label: '判断题' },
+  { value: '填空题', label: '填空题' },
+  { value: '代码填空', label: '代码填空' },
+  { value: '匹配题', label: '匹配题' },
+  { value: '简答题', label: '简答题' }
+];
 
 const toolset = [
   { type: '单选题', color: 'bg-blue-500' },
@@ -887,16 +906,23 @@ const closeDrawer = () => {
 };
 
 const generateQuestionWithAI = () => {
+  // 如果正在编辑某个node，自动设置题目类型为该node的题型
+  if (drawer.currentIndex !== -1 && drawer.currentIndex < nodes.value.length) {
+    const currentNode = nodes.value[drawer.currentIndex];
+    aiModal.questionType = currentNode.type;
+  } else {
+    aiModal.questionType = '';
+  }
   aiModal.show = true;
 };
 
 const closeAIModal = () => {
   aiModal.show = false;
   aiModal.prompt = '';
-  aiModal.difficulty = '自动';
+  aiModal.difficulty = '中等';
 };
 
-const generateQuestion = () => {
+const generateQuestion = async () => {
   if (!aiModal.prompt.trim()) {
     showToast('请输入题目描述', 'error');
     return;
@@ -904,10 +930,105 @@ const generateQuestion = () => {
   
   showToast('正在生成题目...', 'info');
   
-  setTimeout(() => {
-    showToast('题目生成成功！', 'success');
-    closeAIModal();
-  }, 1500);
+  try {
+    const response = await fetch(CONFIG.baseUrl + '/api/ai/generate-question', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        prompt: aiModal.prompt,
+        difficulty: aiModal.difficulty,
+        question_type: aiModal.questionType || undefined
+      })
+    });
+    
+    const result = await response.json();
+    
+    if (result.success && result.data) {
+      const questionData = result.data;
+      
+      const typeMap = {
+        'choice': '单选题',
+        'multiple_choice': '多选题',
+        'true_false': '判断题',
+        'fill_blank': '填空题',
+        'code_fill': '代码填空',
+        'matching': '匹配题',
+        'short_answer': '简答题'
+      };
+      
+      const questionType = typeMap[questionData.type] || '单选题';
+      
+      const data = {
+        title: questionData.title || '',
+        options: questionData.options || ['', '', '', ''],
+        analysis: questionData.analysis || '',
+        answer: questionData.answer || 0,
+        score: questionData.score || 10,
+        correctAnswers: questionData.correctAnswers || [],
+        content: questionData.content || '',
+        code: questionData.code || '',
+        fields: questionData.fields || [],
+        pairs: questionData.pairs || [
+          { left: '', right: '' },
+          { left: '', right: '' },
+          { left: '', right: '' }
+        ],
+        standardAnswer: questionData.standardAnswer || ''
+      };
+      
+      // 检查是否正在编辑某个node
+      if (drawer.currentIndex !== -1 && drawer.currentIndex < nodes.value.length) {
+        // 更新当前正在编辑的node，保持原有的题型
+        const currentNode = nodes.value[drawer.currentIndex];
+        const finalQuestionType = currentNode.type; // 强制使用node原有的题型
+        drawer.editingNode = {
+          ...currentNode,
+          type: finalQuestionType,
+          data: data,
+          answer: questionData.answer || (finalQuestionType === '多选题' ? [] : 0),
+          color: getQuestionColor(finalQuestionType)
+        };
+        drawer.title = `编辑：${finalQuestionType} (#${drawer.currentIndex + 1})`;
+      } else {
+        // 创建新node
+        drawer.editingNode = {
+          type: questionType,
+          data: data,
+          answer: questionData.answer || (questionType === '多选题' ? [] : 0),
+          id: Date.now().toString(),
+          x: 0,
+          y: 0,
+          color: getQuestionColor(questionType)
+        };
+        drawer.title = `编辑：${questionType} (#${nodes.value.length + 1})`;
+      }
+      
+      closeAIModal();
+      drawer.show = true;
+      
+      showToast('题目生成成功！', 'success');
+    } else {
+      showToast(result.message || '生成失败，请重试', 'error');
+    }
+  } catch (error) {
+    console.error('生成题目失败:', error);
+    showToast('生成失败，请检查网络连接', 'error');
+  }
+};
+
+const getQuestionColor = (type) => {
+  const colorMap = {
+    '单选题': 'bg-blue-500',
+    '多选题': 'bg-purple-500',
+    '判断题': 'bg-rose-500',
+    '填空题': 'bg-cyan-500',
+    '代码填空': 'bg-emerald-500',
+    '匹配题': 'bg-orange-500',
+    '简答题': 'bg-indigo-500'
+  };
+  return colorMap[type] || 'bg-blue-500';
 };
 
 const showToast = (message, type = 'success') => {
@@ -1343,6 +1464,12 @@ const closeDetailView = () => {
   background-repeat: no-repeat;
   background-position: right 12px center;
   background-size: 17px;
+}
+
+.option-item select:disabled {
+  cursor: not-allowed;
+  background-image: none;
+  opacity: 0.7;
 }
 
 .ai-modal-footer {
