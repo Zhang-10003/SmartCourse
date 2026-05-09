@@ -800,7 +800,13 @@ const removeNode = (index) => {
 
 const openEditor = (node, index) => {
   drawer.title = `编辑：${node.type} (#${index + 1})`;
-  drawer.editingNode = { ...node };
+  drawer.editingNode = { 
+    ...node, 
+    data: { 
+      ...node.data, 
+      score: (node.data && node.data.score) || 10 
+    } 
+  };
   drawer.currentIndex = index;
   drawer.show = true;
 };

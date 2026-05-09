@@ -1,7 +1,20 @@
 <template>
   <div class="match-ui-container">
-    <div class="tag-row">
+    <div class="tag-score-row">
       <span class="tag">单选题</span>
+      <div class="score-input-wrapper">
+        <span class="score-label">题目分数</span>
+        <button class="score-btn" @click="decreaseScore">-</button>
+        <input 
+          type="number" 
+          v-model.number="localScore" 
+          class="score-input" 
+          min="1" 
+          max="100"
+        />
+        <button class="score-btn" @click="increaseScore">+</button>
+        <span class="score-unit">分</span>
+      </div>
     </div>
 
     <!-- 题干部分 -->
@@ -75,7 +88,8 @@ export default {
       default: () => ({
         title: '',
         options: ['', '', '', ''],
-        analysis: '' // 确保数据结构里有这个字段
+        analysis: '',
+        score: 10
       })
     },
     answer: { type: [Number, Array], default: 0 }
@@ -87,9 +101,25 @@ export default {
     },
     currentAnswerIndex() {
       return Array.isArray(this.answer) ? this.answer[0] : this.answer;
+    },
+    localScore: {
+      get() { return this.localQuestion.score || 10 },
+      set(val) { 
+        this.localQuestion.score = Math.max(1, Math.min(100, val || 1));
+      }
     }
   },
   methods: {
+    increaseScore() {
+      if (this.localScore < 100) {
+        this.localScore++;
+      }
+    },
+    decreaseScore() {
+      if (this.localScore > 1) {
+        this.localScore--;
+      }
+    },
     setCorrect(idx) {
       const val = Array.isArray(this.answer) ? [idx] : idx;
       this.$emit('update:answer', val);
@@ -124,7 +154,10 @@ export default {
   box-sizing: border-box;
 }
 
-.tag-row {
+.tag-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 4px;
 }
 .tag {
@@ -134,6 +167,55 @@ export default {
   padding: 2px 8px;
   border-radius: 4px;
   font-weight: 500;
+}
+.score-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.score-label {
+  font-size: 13px;
+  color: #8c8c8c;
+}
+.score-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.score-btn:hover {
+  border-color: #1677ff;
+  color: #1677ff;
+  background: #f0f7ff;
+}
+.score-input {
+  width: 50px;
+  height: 24px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  outline: none;
+  transition: all 0.2s;
+}
+.score-input:focus {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+}
+.score-unit {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-left: 2px;
 }
 
 /* 题干样式 */

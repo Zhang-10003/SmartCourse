@@ -1,7 +1,20 @@
 <template>
   <div class="match-ui-container">
-    <div class="tag-row">
+    <div class="tag-score-row">
       <span class="tag code-tag">代码填空题编辑</span>
+      <div class="score-input-wrapper">
+        <span class="score-label">题目分数</span>
+        <button class="score-btn" @click="decreaseScore">-</button>
+        <input 
+          type="number" 
+          v-model.number="localScore" 
+          class="score-input" 
+          min="1" 
+          max="100"
+        />
+        <button class="score-btn" @click="increaseScore">+</button>
+        <span class="score-unit">分</span>
+      </div>
     </div>
 
     <!-- 题干编辑 -->
@@ -81,7 +94,8 @@ export default {
         title: '',
         code: '',
         fields: [],
-        analysis: ''
+        analysis: '',
+        score: 10
       })
     }
   },
@@ -89,6 +103,12 @@ export default {
     localQuestion: {
       get() { return this.modelValue },
       set(val) { this.$emit('update:modelValue', val) }
+    },
+    localScore: {
+      get() { return this.localQuestion.score || 10 },
+      set(val) { 
+        this.localQuestion.score = Math.max(1, Math.min(100, val || 1));
+      }
     },
     parsedLines() {
       if (!this.localQuestion.code) return [];
@@ -115,6 +135,16 @@ export default {
     }
   },
   methods: {
+    increaseScore() {
+      if (this.localScore < 100) {
+        this.localScore++;
+      }
+    },
+    decreaseScore() {
+      if (this.localScore > 1) {
+        this.localScore--;
+      }
+    },
     syncFields() {
       const fillCount = (this.localQuestion.code.match(/\?\?\?\?/g) || []).length;
       const fields = this.localQuestion.fields;
@@ -156,6 +186,12 @@ export default {
   box-sizing: border-box;
 }
 
+.tag-score-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
 .tag {
   background: #e6f4ff;
   color: #1677ff;
@@ -165,6 +201,55 @@ export default {
   font-weight: 500;
 }
 .code-tag { background: #fff7e6; color: #fa8c16; }
+.score-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.score-label {
+  font-size: 13px;
+  color: #8c8c8c;
+}
+.score-btn {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+.score-btn:hover {
+  border-color: #fa8c16;
+  color: #fa8c16;
+  background: #fff7e6;
+}
+.score-input {
+  width: 50px;
+  height: 24px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #333;
+  outline: none;
+  transition: all 0.2s;
+}
+.score-input:focus {
+  border-color: #fa8c16;
+  box-shadow: 0 0 0 2px rgba(250, 140, 22, 0.1);
+}
+.score-unit {
+  font-size: 12px;
+  color: #8c8c8c;
+  margin-left: 2px;
+}
 
 .question-header { display: flex; align-items: flex-start; margin: 16px 0; }
 .q-index { font-size: 20px; font-weight: bold; color: #fa8c16; margin-right: 8px; line-height: 28px; }
