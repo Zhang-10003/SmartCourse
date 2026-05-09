@@ -420,7 +420,15 @@
             <h2 class="text-xl font-bold text-slate-900">{{ drawer.title }}</h2>
             <p class="text-slate-500 text-xs mt-1">SmartCourse 配置引擎</p>
           </view>
-          <view @click="closeDrawer" class="ml-4 text-slate-300 hover:text-slate-500 transition-colors text-xl cursor-pointer">×</view>
+          <view class="flex items-center gap-4">
+            <view 
+              @click="generateQuestionWithAI" 
+              class="text-indigo-600 hover:text-indigo-700 text-base font-medium cursor-pointer transition-colors"
+            >
+              AI智能生成题目
+            </view>
+            <view @click="closeDrawer" class="text-slate-300 hover:text-slate-500 transition-colors text-xl cursor-pointer">×</view>
+          </view>
         </view>
 
         <view class="flex-1 overflow-y-auto p-8">
@@ -485,6 +493,48 @@
         <view class="p-8 border-t border-slate-100 flex gap-4">
           <button @click="saveNode" class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:shadow-lg transition-all">确认并保存</button>
           <button @click="deleteNode" class="px-8 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold hover:bg-rose-100 transition-all">删除</button>
+        </view>
+      </view>
+    </view>
+
+    <view v-if="aiModal.show" class="fixed inset-0 z-30 flex items-center justify-center p-4">
+      <view @click="closeAIModal" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></view>
+      <view class="ai-modal-card relative">
+        <view class="ai-modal-header">
+          <h3 class="flex items-center gap-2">
+            <text>✨</text>
+            <span>智能出题</span>
+            <span class="rag-badge">已关联知识库</span>
+          </h3>
+        </view>
+
+        <view class="ai-modal-body">
+          <view class="form-group">
+            <label class="form-label">你想要生成什么样的题目？</label>
+            <textarea 
+              v-model="aiModal.prompt"
+              class="input-control" 
+              rows="4" 
+              placeholder="例如：出一道关于TCP特点的题目..."
+            ></textarea>
+          </view>
+
+          <view class="options-row">
+            <div class="option-item">
+              <label class="form-label">难度设定</label>
+              <select v-model="aiModal.difficulty" class="input-control">
+                <option>自动</option>
+                <option>简单</option>
+                <option>中等</option>
+                <option>困难</option>
+              </select>
+            </div>
+          </view>
+        </view>
+
+        <view class="ai-modal-footer">
+          <button class="btn btn-cancel" @click="closeAIModal">取消</button>
+          <button class="btn btn-confirm" @click="generateQuestion">开始生成</button>
         </view>
       </view>
     </view>
@@ -615,6 +665,12 @@ const drawer = reactive({
     color: ''
   },
   currentIndex: -1
+});
+
+const aiModal = reactive({
+  show: false,
+  prompt: '',
+  difficulty: '自动'
 });
 
 const toolset = [
@@ -828,6 +884,30 @@ const deleteNode = () => {
 const closeDrawer = () => {
   drawer.show = false;
   drawer.currentIndex = -1;
+};
+
+const generateQuestionWithAI = () => {
+  aiModal.show = true;
+};
+
+const closeAIModal = () => {
+  aiModal.show = false;
+  aiModal.prompt = '';
+  aiModal.difficulty = '自动';
+};
+
+const generateQuestion = () => {
+  if (!aiModal.prompt.trim()) {
+    showToast('请输入题目描述', 'error');
+    return;
+  }
+  
+  showToast('正在生成题目...', 'info');
+  
+  setTimeout(() => {
+    showToast('题目生成成功！', 'success');
+    closeAIModal();
+  }, 1500);
 };
 
 const showToast = (message, type = 'success') => {
@@ -1173,6 +1253,131 @@ const closeDetailView = () => {
   opacity: 1;
   transform: translateY(0);
   pointer-events: auto;
+}
+
+/* AI智能出题弹窗样式 */
+.ai-modal-card {
+  width: 430px;
+  background: white;
+  border-radius: 22px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+  padding: 32px;
+  box-sizing: border-box;
+}
+
+.ai-modal-header {
+  margin-bottom: 26px;
+}
+
+.ai-modal-header h3 {
+  margin: 0;
+  font-size: 1.45rem;
+  font-weight: 600;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.rag-badge {
+  font-size: 13px;
+  font-weight: normal;
+  background: #eef2ff;
+  color: #4f46e5;
+  padding: 4px 11px;
+  border-radius: 14px;
+  margin-left: auto;
+}
+
+.ai-modal-body {
+  margin-bottom: 26px;
+}
+
+.form-group {
+  margin-bottom: 26px;
+}
+
+.form-label {
+  display: block;
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 11px;
+  color: #111827;
+}
+
+.input-control {
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  font-size: 16px;
+  line-height: 1.6;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-sizing: border-box;
+  background: #f9fafb;
+  resize: none;
+  color: #111827;
+}
+
+.input-control:focus {
+  outline: none;
+  border-color: rgba(79, 70, 229, 0.3);
+  background: white;
+  box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.05);
+}
+
+.options-row {
+  display: flex;
+  gap: 22px;
+  margin-bottom: 26px;
+}
+
+.option-item {
+  flex: 1;
+}
+
+.option-item select {
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 17px;
+}
+
+.ai-modal-footer {
+  display: flex;
+  gap: 14px;
+}
+
+.btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-confirm {
+  background: #4f46e5;
+  color: white;
+  flex: 2;
+}
+
+.btn-confirm:hover {
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.btn-cancel {
+  background: #f9fafb;
+  color: #6b7280;
+}
+
+.btn:active {
+  transform: translateY(0);
 }
 
 .share-modal-overlay {
