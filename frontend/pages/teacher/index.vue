@@ -44,9 +44,9 @@
       </nav>
     </aside>
 
-    <main class="flex-1 overflow-y-auto p-4 lg:p-8 pb-64 relative no-scrollbar">
-      <view v-if="currentTab === 'design'" class="animate-in fade-in duration-500">
-        <header class="flex flex-col lg:flex-row lg:justify-between lg:items-end mb-10 gap-4">
+    <main class="flex-1 overflow-y-auto p-4 lg:p-8 pb-4 relative no-scrollbar">
+      <view v-if="currentTab === 'design'" class="animate-in fade-in duration-500 flex flex-col h-full">
+        <header class="flex flex-col lg:flex-row lg:justify-between lg:items-end mb-6 gap-4 shrink-0">
           <view>
             <h1 class="text-3xl font-bold text-slate-900">我的作业流</h1>
             <p class="text-slate-500 mt-2">拖拽左侧题型至画布，已在画布的题型可直接拖动位置。</p>
@@ -57,13 +57,13 @@
           </view>
         </header>
 
-        <h2 class="text-lg font-bold mb-6 flex items-center">
+        <h2 class="text-lg font-bold mb-4 flex items-center shrink-0">
             <span class="w-2 h-2 bg-indigo-600 rounded-full mr-2"></span>
             可视化题型蓝图 (Node Editor)
         </h2>
 
-        <view class="flex flex-col lg:flex-row gap-6">
-          <view class="w-full lg:w-48 flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-x-visible pb-4 lg:pb-0">
+        <view class="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
+          <view class="w-full lg:w-48 flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-x-visible pb-4 lg:pb-0 shrink-0">
             <view 
               v-for="item in toolset" :key="item.type"
               draggable="true"
@@ -76,43 +76,129 @@
           </view>
 
           <view 
-            class="flex-1 min-h-[600px] rounded-[32px] node-canvas-bg border-2 border-dashed border-slate-200 relative overflow-hidden"
+            class="flex-1 min-h-0 rounded-[32px] node-canvas-bg border-2 border-dashed border-slate-200 relative overflow-hidden"
             @dragover.prevent
             @drop="onDrop"
           >
             <view 
               v-for="(node, index) in nodes" :key="node.id"
-              class="node-element absolute glass-panel p-5 rounded-[24px] cursor-move z-10 border border-white shadow-lg select-none"
+              :class="[
+                'node-element absolute glass-panel rounded-[24px] cursor-move select-none flex flex-col transition-all duration-300',
+                node.isExpanded 
+                  ? 'z-30 shadow-2xl border-indigo-200/60' 
+                  : 'z-10 shadow-lg border border-white'
+              ]"
               :style="{ 
                 left: node.x + 'px', 
                 top: node.y + 'px', 
-                minWidth: '200px',
+                width: node.isExpanded ? '600px' : '240px',
+                height: node.isExpanded ? 'auto' : '145px',
                 willChange: (isUpdating || draggingNodeIndex === index) ? 'auto' : 'left, top',
-                transition: (isUpdating || draggingNodeIndex === index) ? 'none' : 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1), top 0.2s cubic-bezier(0.4, 0, 0.2, 1), transform 0.2s, box-shadow 0.2s' 
+                transition: (isUpdating || draggingNodeIndex === index) 
+                  ? 'none' 
+                  : 'left 0.2s cubic-bezier(0.4, 0, 0.2, 1), top 0.2s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s, border-color 0.3s' 
               }"
               @mousedown.stop="onNodeMouseDown($event, index)"
               @click.stop="handleNodeClick(node, index)"
             >
-              <view class="flex justify-between items-center mb-4 pointer-events-none">
-                <text class="text-[10px] font-bold text-slate-400 tracking-widest uppercase">NODE_{{ index + 1 }}</text>
-                <view 
-                  @click.stop="removeNode(index)" 
-                  :class="[node.color, 'pointer-events-auto']" 
-                  class="w-5 h-5 rounded-full shadow-sm flex items-center justify-center cursor-pointer hover:scale-110 active:scale-90 transition-transform"
-                >
-                  <text class="text-white text-[12px] font-bold" style="line-height: 1;">×</text>
+              <view v-if="!node.isExpanded" class="mini-view p-5 h-full flex flex-col justify-between">
+                <view class="flex justify-between items-center">
+                  <text class="text-[10px] font-bold text-slate-400 tracking-widest uppercase">NODE_{{ index + 1 }}</text>
+                  <view 
+                    @click.stop="removeNode(index)" 
+                    :class="[node.color, 'pointer-events-auto']" 
+                    class="w-5 h-5 rounded-full shadow-sm flex items-center justify-center cursor-pointer hover:scale-110 active:scale-90 transition-transform"
+                  >
+                    <text class="text-white text-[12px] font-bold" style="line-height: 1;">×</text>
+                  </view>
+                </view>
+                <view class="font-bold text-slate-800 mb-3">{{ node.type }}</view>
+                
+                <view class="space-y-2">
+                  <view class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <view :class="node.color" class="w-1/2 h-full opacity-30"></view>
+                  </view>
+                  <view class="w-2/3 h-1.5 bg-slate-100 rounded-full"></view>
                 </view>
               </view>
-              <view class="font-bold text-slate-800 mb-3 pointer-events-none">{{ node.type }}</view>
-              
-              <view class="space-y-2 pointer-events-none">
-                <view class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <view :class="node.color" class="w-1/2 h-full opacity-30"></view>
-                </view>
-                <view class="w-2/3 h-1.5 bg-slate-100 rounded-full"></view>
-              </view>
-              
 
+              <view v-else class="expanded-view flex flex-col">
+                <view class="drag-handle-expanded p-4 cursor-move select-none flex items-center justify-between border-b border-dashed border-slate-100 bg-slate-50/40">
+                  <view class="flex items-center gap-2">
+                    <span :class="[node.color, 'px-2.5 py-1 text-xs font-bold rounded-lg text-white']">{{ node.type }}</span>
+                    <span class="text-xs font-bold text-slate-400">#{{ String(index + 1).padStart(2, '0') }}</span>
+                  </view>
+                  <button 
+                    @click.stop="shrinkNode(index)" 
+                    class="px-6 py-2 bg-slate-700 text-white hover:bg-slate-800 text-sm font-bold rounded-xl transition-all"
+                  >
+                    收起
+                  </button>
+                  <view class="flex items-center gap-3">
+                    <view 
+                      @click.stop="generateQuestionWithAI(index)" 
+                      class="text-indigo-600 hover:text-indigo-700 text-sm font-medium cursor-pointer transition-colors flex items-center gap-1"
+                    >
+                      <text>✨</text>
+                      <span>AI生成</span>
+                    </view>
+                    <view @click.stop="removeNode(index)" class="text-slate-400 hover:text-rose-500 text-lg cursor-pointer">×</view>
+                  </view>
+                </view>
+
+                <view class="flex-1 overflow-y-auto p-4 scrollbar-hide">
+                  <view v-if="node.type === '单选题'">
+                    <QuestionChoiceEditor 
+                      :index="index + 1"
+                      :modelValue="node.data"
+                      :answer="node.answer || 0"
+                      @update:modelValue="(val) => { node.data = val }"
+                      @update:answer="(val) => { node.answer = val }"
+                    />
+                  </view>
+                  <view v-else-if="node.type === '多选题'">
+                    <QuestionMultipleChoiceEditor 
+                      :index="index + 1"
+                      :modelValue="node.data"
+                      :answer="node.answer || []"
+                      @update:modelValue="(val) => { node.data = val }"
+                      @update:answer="(val) => { node.answer = val }"
+                    />
+                  </view>
+                  <view v-else-if="node.type === '判断题'">
+                    <QuestionTrueFalseEditor 
+                      :index="index + 1"
+                      v-model="node.data"
+                    />
+                  </view>
+                  <view v-else-if="node.type === '代码填空'">
+                    <QuestionCodeFillEditor 
+                      :index="index + 1"
+                      :modelValue="node.data"
+                      @update:modelValue="(val) => { node.data = val }"
+                    />
+                  </view>
+                  <view v-else-if="node.type === '填空题'">
+                    <QuestionFillBlankEditor 
+                      :index="index + 1"
+                      v-model="node.data"
+                    />
+                  </view>
+                  <view v-else-if="node.type === '匹配题'">
+                    <QuestionMatchingEditor 
+                      :index="index + 1"
+                      :modelValue="node.data"
+                      @update:modelValue="(val) => { node.data = val }"
+                    />
+                  </view>
+                  <view v-else-if="node.type === '简答题'">
+                    <QuestionShortAnswerEditor 
+                      :index="index + 1"
+                      v-model="node.data"
+                    />
+                  </view>
+                </view>
+              </view>
             </view>
 
             <view v-if="nodes.length === 0" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 pointer-events-none">
@@ -206,98 +292,6 @@
 
       </view>
     </main>
-
-    <view 
-      v-show="drawer.show" 
-      class="fixed inset-0 z-20"
-      :class="drawer.show ? 'pointer-events-auto' : 'pointer-events-none'"
-    >
-      <view @click="drawer.show = false" class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></view>
-      <view 
-        class="absolute top-0 right-0 h-full w-full md:w-[600px] bg-white shadow-2xl transition-transform duration-500 flex flex-col"
-        :style="{ transform: drawer.show ? 'translateX(0)' : 'translateX(100%)' }"
-      >
-        <view class="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-          <view class="flex-1">
-            <h2 class="text-xl font-bold text-slate-900">{{ drawer.title }}</h2>
-            <p class="text-slate-500 text-xs mt-1">SmartCourse 配置引擎</p>
-          </view>
-          <view class="flex items-center gap-4">
-            <view 
-              @click="generateQuestionWithAI" 
-              class="text-indigo-600 hover:text-indigo-700 text-base font-medium cursor-pointer transition-colors"
-            >
-              AI智能生成题目
-            </view>
-            <view @click="closeDrawer" class="text-slate-300 hover:text-slate-500 transition-colors text-xl cursor-pointer">×</view>
-          </view>
-        </view>
-
-        <view class="flex-1 overflow-y-auto p-8">
-          <view v-if="drawer.editingNode.type === '单选题'">
-            <QuestionChoiceEditor 
-              :index="drawer.currentIndex + 1"
-              :modelValue="drawer.editingNode.data"
-              :answer="drawer.editingNode.answer || 0"
-              @update:modelValue="(val) => drawer.editingNode.data = val"
-              @update:answer="(val) => drawer.editingNode.answer = val"
-            />
-          </view>
-
-          <view v-else-if="drawer.editingNode.type === '多选题'">
-            <QuestionMultipleChoiceEditor 
-              :index="drawer.currentIndex + 1"
-              :modelValue="drawer.editingNode.data"
-              :answer="drawer.editingNode.answer || []"
-              @update:modelValue="(val) => drawer.editingNode.data = val"
-              @update:answer="(val) => drawer.editingNode.answer = val"
-            />
-          </view>
-
-          <view v-else-if="drawer.editingNode.type === '判断题'">
-            <QuestionTrueFalseEditor 
-              :index="drawer.currentIndex + 1"
-              v-model="drawer.editingNode.data"
-            />
-          </view>
-
-          <view v-else-if="drawer.editingNode.type === '代码填空'">
-            <QuestionCodeFillEditor 
-              :index="drawer.currentIndex + 1"
-              :modelValue="drawer.editingNode.data"
-              @update:modelValue="(val) => drawer.editingNode.data = val"
-            />
-          </view>
-
-          <view v-else-if="drawer.editingNode.type === '填空题'">
-            <QuestionFillBlankEditor 
-              :index="drawer.currentIndex + 1"
-              v-model="drawer.editingNode.data"
-            />
-          </view>
-
-          <view v-else-if="drawer.editingNode.type === '匹配题'">
-            <QuestionMatchingEditor 
-              :index="drawer.currentIndex + 1"
-              :modelValue="drawer.editingNode.data"
-              @update:modelValue="(val) => drawer.editingNode.data = val"
-            />
-          </view>
-
-          <view v-else-if="drawer.editingNode.type === '简答题'">
-            <QuestionShortAnswerEditor 
-              :index="drawer.currentIndex + 1"
-              v-model="drawer.editingNode.data"
-            />
-          </view>
-        </view>
-
-        <view class="p-8 border-t border-slate-100 flex gap-4">
-          <button @click="saveNode" class="flex-1 bg-indigo-600 text-white py-4 rounded-2xl font-bold hover:shadow-lg transition-all">确认并保存</button>
-          <button @click="deleteNode" class="px-8 py-4 bg-rose-50 text-rose-600 rounded-2xl font-bold hover:bg-rose-100 transition-all">删除</button>
-        </view>
-      </view>
-    </view>
 
     <view v-if="aiModal.show" class="fixed inset-0 z-30 flex items-center justify-center p-4">
       <view @click="closeAIModal" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></view>
@@ -460,21 +454,6 @@ const toast = reactive({
   show: false,
   message: '',
   type: 'success'
-});
-
-const drawer = reactive({
-  show: false,
-  title: '',
-  editingNode: { 
-    type: '', 
-    data: {}, 
-    answer: null,
-    id: '',
-    x: 0,
-    y: 0,
-    color: ''
-  },
-  currentIndex: -1
 });
 
 const aiModal = reactive({
@@ -662,7 +641,38 @@ const handleNodeClick = (node, index) => {
     hasMoved = false;
     return;
   }
-  openEditor(node, index);
+  if (!node.isExpanded) {
+    expandNode(index);
+  }
+};
+
+const expandNode = (index) => {
+  const canvasElement = document.querySelector('.node-canvas-bg');
+  const rect = canvasElement.getBoundingClientRect();
+  const node = nodes.value[index];
+  
+  let currentLeft = node.x || 0;
+  if (currentLeft + 600 > rect.width) {
+    currentLeft = Math.max(0, rect.width - 600);
+    node.x = currentLeft;
+  }
+  
+  node.isExpanded = true;
+};
+
+const shrinkNode = (index) => {
+  const canvasElement = document.querySelector('.node-canvas-bg');
+  const rect = canvasElement.getBoundingClientRect();
+  const node = nodes.value[index];
+  
+  let currentLeft = node.x || 0;
+  let currentTop = node.y || 0;
+  currentLeft = Math.min(currentLeft, rect.width - 240);
+  currentTop = Math.min(currentTop, rect.height - 145);
+  
+  node.x = currentLeft;
+  node.y = currentTop;
+  node.isExpanded = false;
 };
 
 const removeNode = (index) => {
@@ -681,45 +691,14 @@ const removeNode = (index) => {
   });
 };
 
-const openEditor = (node, index) => {
-  drawer.title = `编辑：${node.type} (#${index + 1})`;
-  drawer.editingNode = { 
-    ...node, 
-    data: { 
-      ...node.data, 
-      score: (node.data && node.data.score) || 10 
-    } 
-  };
-  drawer.currentIndex = index;
-  drawer.show = true;
-};
-
-const saveNode = () => {
-  if (drawer.currentIndex !== -1) {
-    nodes.value[drawer.currentIndex] = { ...drawer.editingNode };
-    closeDrawer();
-  }
-};
-
-const deleteNode = () => {
-  if (drawer.currentIndex !== -1) {
-    removeNode(drawer.currentIndex);
-    closeDrawer();
-  }
-};
-
-const closeDrawer = () => {
-  drawer.show = false;
-  drawer.currentIndex = -1;
-};
-
-const generateQuestionWithAI = () => {
-  // 如果正在编辑某个node，自动设置题目类型为该node的题型
-  if (drawer.currentIndex !== -1 && drawer.currentIndex < nodes.value.length) {
-    const currentNode = nodes.value[drawer.currentIndex];
+const generateQuestionWithAI = (nodeIndex) => {
+  if (nodeIndex !== undefined && nodeIndex >= 0 && nodeIndex < nodes.value.length) {
+    const currentNode = nodes.value[nodeIndex];
     aiModal.questionType = currentNode.type;
+    aiModal.currentNodeIndex = nodeIndex;
   } else {
     aiModal.questionType = '';
+    aiModal.currentNodeIndex = -1;
   }
   aiModal.show = true;
 };
@@ -787,34 +766,33 @@ const generateQuestion = async () => {
       };
       
       // 检查是否正在编辑某个node
-      if (drawer.currentIndex !== -1 && drawer.currentIndex < nodes.value.length) {
+      if (aiModal.currentNodeIndex !== undefined && aiModal.currentNodeIndex >= 0 && aiModal.currentNodeIndex < nodes.value.length) {
         // 更新当前正在编辑的node，保持原有的题型
-        const currentNode = nodes.value[drawer.currentIndex];
-        const finalQuestionType = currentNode.type; // 强制使用node原有的题型
-        drawer.editingNode = {
+        const currentNode = nodes.value[aiModal.currentNodeIndex];
+        const finalQuestionType = currentNode.type;
+        nodes.value[aiModal.currentNodeIndex] = {
           ...currentNode,
           type: finalQuestionType,
           data: data,
           answer: questionData.answer || (finalQuestionType === '多选题' ? [] : 0),
           color: getQuestionColor(finalQuestionType)
         };
-        drawer.title = `编辑：${finalQuestionType} (#${drawer.currentIndex + 1})`;
       } else {
         // 创建新node
-        drawer.editingNode = {
+        const canvasElement = document.querySelector('.node-canvas-bg');
+        const rect = canvasElement.getBoundingClientRect();
+        nodes.value.push({
           type: questionType,
           data: data,
           answer: questionData.answer || (questionType === '多选题' ? [] : 0),
           id: Date.now().toString(),
-          x: 0,
-          y: 0,
+          x: rect.width / 2 - 120,
+          y: rect.height / 2 - 72,
           color: getQuestionColor(questionType)
-        };
-        drawer.title = `编辑：${questionType} (#${nodes.value.length + 1})`;
+        });
       }
       
       closeAIModal();
-      drawer.show = true;
       
       showToast('题目生成成功！', 'success');
     } else {
@@ -1161,6 +1139,13 @@ const closeDetailView = () => {
 }
 .node-element:active { cursor: grabbing; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 .animate-in { animation: fadeIn 0.4s ease-out; }
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }

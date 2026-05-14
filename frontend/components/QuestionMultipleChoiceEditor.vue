@@ -36,7 +36,7 @@
         :key="idx"
         class="opt-card"
         :class="{ 'is-selected': isSelected(idx) }"
-        @click="toggleCorrect(idx)"
+        @click.stop="toggleCorrect(idx)"
       >
         <div class="opt-content">
           <!-- 多选框视觉反馈 -->
