@@ -112,8 +112,7 @@
                 <view class="w-2/3 h-1.5 bg-slate-100 rounded-full"></view>
               </view>
               
-              <view class="anchor-left absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-slate-200 rounded-full transition-colors"></view>
-              <view class="anchor-right absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-indigo-400 rounded-full transition-colors"></view>
+
             </view>
 
             <view v-if="nodes.length === 0" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 pointer-events-none">
