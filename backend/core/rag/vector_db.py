@@ -1,113 +1,116 @@
 import os
-import json
+from typing import List, Dict, Optional
+import chromadb
+from chromadb.api.types import EmbeddingFunction, Documents, Embeddings
+from .embedding import DashScopeEmbedding
+
+
+class DashScopeChromaEmbedding(EmbeddingFunction):
+    """兼容 ChromaDB 的 DashScope Embedding"""
+    
+    def __init__(self, embedding: DashScopeEmbedding):
+        self.embedding = embedding
+    
+    def __call__(self, input: Documents) -> Embeddings:
+        return self.embedding.embed_batch(input)
+
 
 class VectorDB:
-    def __init__(self, collection_name="knowledge_base"):
+    """向量数据库（使用 ChromaDB + DashScope Embedding）"""
+    
+    def __init__(self, collection_name: str = "knowledge_base"):
+        """
+        初始化向量数据库
+        
+        Args:
+            collection_name: 集合名称
+        """
         self.collection_name = collection_name
         self.db_path = os.path.join(os.path.dirname(__file__), "chroma_db")
-        self.documents = []
-        self.metadatas = []
-        self.ids = []
+        os.makedirs(self.db_path, exist_ok=True)
         
-        self._load_from_disk()
-    
-    def _load_from_disk(self):
+        # 初始化 Embedding
+        self.embedding = DashScopeEmbedding()
+        self.ef = DashScopeChromaEmbedding(self.embedding)
+        
+        # 初始化 ChromaDB
+        self.client = chromadb.PersistentClient(path=self.db_path)
+        
+        # 获取或创建集合
         try:
-            db_file = os.path.join(self.db_path, f"{self.collection_name}.json")
-            if os.path.exists(db_file):
-                with open(db_file, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                    self.documents = data.get('documents', [])
-                    self.metadatas = data.get('metadatas', [])
-                    self.ids = data.get('ids', [])
-        except Exception as e:
-            print(f"加载数据库失败: {e}")
+            self.collection = self.client.get_collection(
+                name=collection_name,
+                embedding_function=self.ef
+            )
+        except Exception:
+            self.collection = self.client.create_collection(
+                name=collection_name,
+                embedding_function=self.ef
+            )
     
-    def _save_to_disk(self):
-        try:
-            os.makedirs(self.db_path, exist_ok=True)
-            db_file = os.path.join(self.db_path, f"{self.collection_name}.json")
-            with open(db_file, 'w', encoding='utf-8') as f:
-                json.dump({
-                    'documents': self.documents,
-                    'metadatas': self.metadatas,
-                    'ids': self.ids
-                }, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"保存数据库失败: {e}")
-    
-    def _calculate_similarity(self, text1, text2):
-        words1 = set(text1.lower().split())
-        words2 = set(text2.lower().split())
-        if not words1 or not words2:
-            return 0.0
-        intersection = words1 & words2
-        union = words1 | words2
-        return len(intersection) / len(union)
-    
-    def add_documents(self, documents, metadatas=None, ids=None):
+    def add_documents(self, documents: List[str], metadatas: Optional[List[Dict]] = None, ids: Optional[List[str]] = None):
+        """
+        添加文档到数据库
+        
+        Args:
+            documents: 文档内容列表
+            metadatas: 元数据列表
+            ids: ID 列表
+        """
         if ids is None:
-            ids = [f"doc_{len(self.documents) + i}" for i in range(len(documents))]
+            ids = [f"doc_{i}" for i in range(len(documents))]
         
         if metadatas is None:
-            metadatas = [{} for _ in range(len(documents))]
+            metadatas = [{} for _ in documents]
         
-        self.documents.extend(documents)
-        self.metadatas.extend(metadatas)
-        self.ids.extend(ids)
-        
-        self._save_to_disk()
+        self.collection.add(
+            documents=documents,
+            metadatas=metadatas,
+            ids=ids
+        )
     
-    def query(self, query_text, n_results=5):
-        similarities = []
-        for i, doc in enumerate(self.documents):
-            similarity = self._calculate_similarity(query_text, doc)
-            similarities.append((i, similarity))
+    def query(self, query_text: str, n_results: int = 5) -> Dict:
+        """
+        查询相关文档
         
-        similarities.sort(key=lambda x: x[1], reverse=True)
-        top_results = similarities[:n_results]
-        
-        result_documents = []
-        result_metadatas = []
-        result_distances = []
-        
-        for i, similarity in top_results:
-            result_documents.append(self.documents[i])
-            result_metadatas.append(self.metadatas[i])
-            result_distances.append(1 - similarity)
-        
+        Args:
+            query_text: 查询文本
+            n_results: 返回结果数量
+            
+        Returns:
+            查询结果字典
+        """
+        results = self.collection.query(
+            query_texts=[query_text],
+            n_results=n_results
+        )
         return {
-            'documents': result_documents,
-            'metadatas': result_metadatas,
-            'distances': result_distances
+            'documents': results['documents'][0] if results['documents'] else [],
+            'metadatas': results['metadatas'][0] if results['metadatas'] else [],
+            'distances': results['distances'][0] if results['distances'] else [],
+            'ids': results['ids'][0] if results['ids'] else []
         }
     
-    def get_all_documents(self):
+    def get_all_documents(self) -> Dict:
+        """获取所有文档"""
+        results = self.collection.get()
         return {
-            'documents': self.documents,
-            'metadatas': self.metadatas,
-            'ids': self.ids
+            'documents': results['documents'] if results['documents'] else [],
+            'metadatas': results['metadatas'] if results['metadatas'] else [],
+            'ids': results['ids'] if results['ids'] else []
         }
     
-    def delete_documents(self, ids):
-        new_docs = []
-        new_metas = []
-        new_ids = []
-        
-        for doc, meta, id_ in zip(self.documents, self.metadatas, self.ids):
-            if id_ not in ids:
-                new_docs.append(doc)
-                new_metas.append(meta)
-                new_ids.append(id_)
-        
-        self.documents = new_docs
-        self.metadatas = new_metas
-        self.ids = new_ids
-        
-        self._save_to_disk()
+    def delete_documents(self, ids: List[str]):
+        """删除指定文档"""
+        self.collection.delete(ids=ids)
     
     def clear_collection(self):
-        self.documents = []
-        self.metadatas = []
-        self.ids = []
-        self._save_to_disk()
+        """清空集合"""
+        try:
+            self.client.delete_collection(name=self.collection_name)
+            self.collection = self.client.create_collection(
+                name=self.collection_name,
+                embedding_function=self.ef
+            )
+        except Exception:
+            pass
