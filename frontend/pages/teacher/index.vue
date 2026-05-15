@@ -64,6 +64,21 @@
 
         <view class="flex flex-col lg:flex-row gap-6 flex-1 min-h-0">
           <view class="w-full lg:w-48 flex flex-row lg:flex-col gap-3 overflow-x-auto lg:overflow-x-visible pb-4 lg:pb-0 shrink-0">
+            <view class="flex-shrink-0 w-full lg:w-auto">
+              <text class="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-2 block">Knowledge Source</text>
+              <view 
+                draggable="true"
+                @dragstart="onDragStart($event, { type: '教材/课件', color: 'bg-amber-400' })"
+                @click="showResourceLibrary = true"
+                class="flex-shrink-0 p-4 bg-white border-2 border-amber-300 rounded-2xl cursor-pointer hover:border-amber-500 hover:shadow-md transition-all flex items-center gap-3"
+              >
+                <view class="w-3 h-3 rounded-full bg-amber-400 shadow-sm"></view>
+                <text class="text-sm font-semibold text-amber-700">教材/课件</text>
+              </view>
+            </view>
+            
+            <text class="text-[10px] font-bold text-slate-400 tracking-widest uppercase mb-2 block w-full lg:w-auto mt-4 lg:mt-6">Question Types</text>
+            
             <view 
               v-for="item in toolset" :key="item.type"
               draggable="true"
@@ -386,6 +401,61 @@
       </view>
     </view>
 
+    <view class="resource-library-overlay" :class="{ active: showResourceLibrary }" @click="showResourceLibrary = false">
+      <view class="resource-library-panel" @click.stop>
+        <view class="resource-library-header">
+          <h2 class="resource-library-title">资料库</h2>
+          <button class="resource-library-close" @click="showResourceLibrary = false">&times;</button>
+        </view>
+        
+        <view class="resource-library-body">
+          <input 
+            type="text" 
+            class="resource-search-input" 
+            placeholder="搜索已上传的课件..."
+          />
+          
+          <view class="resource-list">
+            <view class="resource-item">
+              <view class="resource-icon pdf-icon">PDF</view>
+              <view class="resource-info">
+                <text class="resource-name">计算机网络 - 第五章.pdf</text>
+                <text class="resource-meta">2.4 MB · 2026-05-12 上传</text>
+              </view>
+              <view class="resource-checkbox checked">✓</view>
+            </view>
+            
+            <view class="resource-item">
+              <view class="resource-icon doc-icon">DOC</view>
+              <view class="resource-info">
+                <text class="resource-name">2026级教学大纲修订版.docx</text>
+                <text class="resource-meta">856 KB · 2026-05-10 上传</text>
+              </view>
+              <view class="resource-checkbox"></view>
+            </view>
+            
+            <view class="resource-item">
+              <view class="resource-icon ppt-icon">PPT</view>
+              <view class="resource-info">
+                <text class="resource-name">TCP三次握手详析.pptx</text>
+                <text class="resource-meta">12.1 MB · 2026-04-28 上传</text>
+              </view>
+              <view class="resource-checkbox"></view>
+            </view>
+            
+            <view class="resource-upload-btn" @click="handleUploadResource">
+              <text class="upload-icon">+</text>
+              <text>上传新资料</text>
+            </view>
+          </view>
+        </view>
+        
+        <view class="resource-library-footer">
+          <button class="resource-confirm-btn" @click="confirmResourceAssociation">确认关联并更新 AI</button>
+        </view>
+      </view>
+    </view>
+
   </view>
 </template>
 
@@ -406,6 +476,7 @@ const currentTab = ref('design');
 const nodes = ref([]);
 const isUpdating = ref(false); 
 const currentView = ref('list');
+const showResourceLibrary = ref(false);
 const selectedAssignment = reactive({
   title: '',
   deadline: '',
@@ -562,6 +633,7 @@ const onDragStart = (e, item) => {
 const onDrop = (e) => {
   e.preventDefault();
   if (!draggingItem) return;
+  
   const canvasElement = document.querySelector('.node-canvas-bg');
   const rect = canvasElement.getBoundingClientRect();
   const uniqueId = `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -582,6 +654,9 @@ const onDrop = (e) => {
 
 const getDefaultQuestionData = (type) => {
   const templates = {
+    '教材/课件': {
+      title: '教材/课件'
+    },
     '单选题': {
       title: '请输入单选题题目内容...',
       options: ['选项 A', '选项 B', '选项 C', '选项 D'],
@@ -640,6 +715,12 @@ const handleNodeClick = (node, index) => {
     hasMoved = false;
     return;
   }
+  
+  if (node.type === '教材/课件') {
+    showResourceLibrary.value = true;
+    return;
+  }
+  
   if (!node.isExpanded) {
     expandNode(index);
   }
@@ -1122,6 +1203,15 @@ const openAssignmentDetail = (title, deadline, status, participants) => {
 const closeDetailView = () => {
   currentView.value = 'list';
 };
+
+const handleUploadResource = () => {
+  showToast('功能开发中', 'info');
+};
+
+const confirmResourceAssociation = () => {
+  showToast('资料关联成功', 'success');
+  showResourceLibrary.value = false;
+};
 </script>
 
 <style scoped>
@@ -1467,5 +1557,235 @@ const closeDetailView = () => {
 
 .share-modal-confirm:hover {
   background-color: #0056b3;
+}
+
+.resource-library-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.resource-library-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.resource-library-panel {
+  position: absolute;
+  top: 0;
+  right: -420px;
+  width: 420px;
+  height: 100%;
+  background-color: #ffffff;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
+  transition: right 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.resource-library-overlay.active .resource-library-panel {
+  right: 0;
+}
+
+.resource-library-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.resource-library-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+.resource-library-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.resource-library-close:hover {
+  color: #666;
+}
+
+.resource-library-body {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.resource-search-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  font-size: 14px;
+  color: #333;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+  margin-bottom: 20px;
+}
+
+.resource-search-input:focus {
+  border-color: #722ed1;
+}
+
+.resource-search-input::placeholder {
+  color: #999;
+}
+
+.resource-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resource-item {
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.resource-item:hover {
+  background: #fff;
+  border-color: #d3adf7;
+}
+
+.resource-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  margin-right: 14px;
+  flex-shrink: 0;
+}
+
+.pdf-icon {
+  background: #ff6b6b;
+}
+
+.doc-icon {
+  background: #6ba3ff;
+}
+
+.ppt-icon {
+  background: #ffb84d;
+}
+
+.resource-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.resource-name {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resource-meta {
+  display: block;
+  font-size: 12px;
+  color: #999;
+}
+
+.resource-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d9d9d9;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #722ed1;
+  flex-shrink: 0;
+  transition: all 0.2s;
+}
+
+.resource-checkbox.checked {
+  background: #722ed1;
+  border-color: #722ed1;
+  color: #fff;
+}
+
+.resource-upload-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  border: 1px dashed #d9d9d9;
+  border-radius: 12px;
+  cursor: pointer;
+  color: #999;
+  transition: all 0.2s;
+}
+
+.resource-upload-btn:hover {
+  border-color: #722ed1;
+  color: #722ed1;
+  background: #f9f0ff;
+}
+
+.upload-icon {
+  font-size: 24px;
+  font-weight: 300;
+  margin-bottom: 4px;
+}
+
+.resource-library-footer {
+  padding: 20px 24px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.resource-confirm-btn {
+  width: 100%;
+  padding: 14px;
+  background: #722ed1;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.resource-confirm-btn:hover {
+  background: #531dab;
+  box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
 }
 </style>
