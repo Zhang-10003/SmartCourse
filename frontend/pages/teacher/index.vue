@@ -95,6 +95,14 @@
             @dragover.prevent
             @drop="onDrop"
           >
+            <view class="absolute top-6 left-1/2 -translate-x-1/2 px-6 py-3 bg-white/80 backdrop-blur-lg rounded-2xl border border-slate-100 shadow-lg flex items-center gap-3 pointer-events-none z-10">
+              <view class="flex h-2 w-2 relative">
+                <view class="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75"></view>
+                <view class="relative inline-flex rounded-full h-2 w-2 bg-indigo-500"></view>
+              </view>
+              <text class="text-sm text-slate-600 font-medium">操作指引：拖拽左侧题型到画布 | 点击教材圆点→题型圆点连线 | 右键连线删除</text>
+            </view>
+            
             <view 
               v-for="(node, index) in nodes" :key="node.id"
               :class="[
@@ -116,6 +124,14 @@
               @mousedown.stop="onNodeMouseDown($event, index)"
               @click.stop="handleNodeClick(node, index)"
             >
+              <view 
+                v-if="node.type !== '教材/课件'" 
+                class="port port-in" 
+                :class="{ 'active': selectedPortId === node.id + '-in' }"
+                :data-port-id="node.id" 
+                data-port-type="in"
+                @click.stop="handlePortClick(node.id, 'in')"
+              ></view>
               <view v-if="!node.isExpanded" class="mini-view p-5 h-full flex flex-col justify-between">
                 <view class="flex justify-between items-center">
                   <text class="text-[10px] font-bold text-slate-400 tracking-widest uppercase">NODE_{{ index + 1 }}</text>
@@ -213,7 +229,17 @@
                   </view>
                 </view>
               </view>
+              <view 
+                v-if="node.type === '教材/课件'" 
+                class="port port-out" 
+                :class="{ 'active': selectedPortId === node.id + '-out' }"
+                :data-port-id="node.id" 
+                data-port-type="out"
+                @click.stop="handlePortClick(node.id, 'out')"
+              ></view>
             </view>
+
+            <svg id="svg-layer" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 5; min-height: 1000px; min-width: 1000px;"></svg>
 
             <view v-if="nodes.length === 0" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 pointer-events-none">
               <view class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
@@ -332,7 +358,7 @@
           <view class="options-row">
             <div class="option-item">
               <label class="form-label">题目类型</label>
-              <select v-model="aiModal.questionType" class="input-control" :disabled="drawer.currentIndex !== -1">
+              <select v-model="aiModal.questionType" class="input-control" disabled>
                 <option v-for="type in questionTypes" :key="type.value" :value="type.value">
                   {{ type.label }}
                 </option>
@@ -508,6 +534,10 @@ const selectedAssignment = reactive({
   participants: []
 });
 
+const selectedPortId = ref(null);
+const connections = ref([]);
+const portRefs = {};
+
 const now = new Date();
 const defaultDeadline = now.toISOString().slice(0, 16);
 
@@ -628,6 +658,7 @@ const updateMousePos = (e) => {
     if (!canvasRect) return;
     nodes.value[draggingNodeIndex.value].x = mousePos.x - canvasRect.left - offset.x;
     nodes.value[draggingNodeIndex.value].y = mousePos.y - canvasRect.top - offset.y;
+    updateLines();
   }
 };
 
@@ -762,6 +793,10 @@ const expandNode = (index) => {
   }
   
   node.isExpanded = true;
+  
+  nextTick(() => {
+    updateLines();
+  });
 };
 
 const shrinkNode = (index) => {
@@ -777,10 +812,22 @@ const shrinkNode = (index) => {
   node.x = currentLeft;
   node.y = currentTop;
   node.isExpanded = false;
+  
+  nextTick(() => {
+    updateLines();
+  });
 };
 
 const removeNode = (index) => {
   isUpdating.value = true;
+  
+  const node = nodes.value[index];
+  if (node) {
+    connections.value = connections.value.filter(c => 
+      c.startPortId !== node.id && c.endPortId !== node.id
+    );
+    updateLines();
+  }
   
   requestAnimationFrame(() => {
     nodes.value.splice(index, 1);
@@ -1257,6 +1304,77 @@ const handleSearchConfirm = () => {
   console.log("执行搜索:", searchKeyword.value);
 };
 
+const handlePortClick = (nodeId, type) => {
+  const currentId = nodeId + '-' + type;
+  
+  if (type === 'out') {
+    selectedPortId.value = (selectedPortId.value === currentId) ? null : currentId;
+    console.log('选中源点:', selectedPortId.value);
+  } else if (type === 'in' && selectedPortId.value) {
+    const [startNodeId] = selectedPortId.value.split('-');
+    const lineId = `line-${startNodeId}-${nodeId}`;
+    
+    if (!connections.value.some(c => c.lineId === lineId)) {
+      connections.value.push({
+        lineId,
+        startPortId: startNodeId,
+        endPortId: nodeId
+      });
+      console.log('连线成功:', lineId);
+    }
+    
+    selectedPortId.value = null;
+    nextTick(() => {
+      updateLines();
+    });
+  }
+};
+
+const updateLines = () => {
+  const svgLayer = document.getElementById('svg-layer');
+  const canvas = document.querySelector('.node-canvas-bg');
+  
+  if (!svgLayer || !canvas) return;
+
+  const canvasRect = canvas.getBoundingClientRect();
+  svgLayer.innerHTML = '';
+
+  connections.value.forEach(conn => {
+    const startEl = document.querySelector(`[data-port-id="${conn.startPortId}"][data-port-type="out"]`);
+    const endEl = document.querySelector(`[data-port-id="${conn.endPortId}"][data-port-type="in"]`);
+
+    if (startEl && endEl) {
+      const sRect = startEl.getBoundingClientRect();
+      const eRect = endEl.getBoundingClientRect();
+
+      const x1 = sRect.left - canvasRect.left + (sRect.width / 2);
+      const y1 = sRect.top - canvasRect.top + (sRect.height / 2);
+      const x2 = eRect.left - canvasRect.left + (eRect.width / 2);
+      const y2 = eRect.top - canvasRect.top + (eRect.height / 2);
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      const cp1x = x1 + (x2 - x1) / 2;
+      const d = `M ${x1} ${y1} C ${cp1x} ${y1}, ${cp1x} ${y2}, ${x2} ${y2}`;
+      
+      path.setAttribute('d', d);
+      path.setAttribute('stroke', '#6366f1');
+      path.setAttribute('stroke-width', '3');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('style', 'pointer-events: visibleStroke; cursor: pointer;');
+      
+      path.oncontextmenu = (e) => {
+        e.preventDefault();
+        connections.value = connections.value.filter(c => c.lineId !== conn.lineId);
+        updateLines();
+      };
+      
+      svgLayer.appendChild(path);
+    }
+  });
+};
+
+
+
 const confirmResourceAssociation = () => {
   showToast('资料关联成功', 'success');
   showResourceLibrary.value = false;
@@ -1276,6 +1394,50 @@ const confirmResourceAssociation = () => {
   transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
 }
 .node-element:active { cursor: grabbing; }
+
+.port {
+  width: 14px;
+  height: 14px;
+  background: #fff;
+  border: 2px solid #6366f1;
+  border-radius: 50%;
+  cursor: crosshair;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 50;
+  transition: all 0.2s;
+  pointer-events: auto;
+}
+.port:hover {
+  transform: translateY(-50%) scale(1.3);
+  background: #6366f1;
+}
+.port.active {
+  background: #6366f1;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+.port-in {
+  left: -7px;
+}
+.port-out {
+  right: -7px;
+}
+
+.flow-line {
+  fill: none;
+  stroke: #6366f1;
+  stroke-width: 3;
+  stroke-linecap: round;
+  pointer-events: stroke;
+  cursor: pointer;
+  transition: stroke 0.2s;
+}
+.flow-line:hover {
+  stroke: #ef4444;
+  stroke-width: 4;
+  filter: drop-shadow(0 0 5px rgba(239, 68, 68, 0.3));
+}
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
