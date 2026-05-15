@@ -404,43 +404,63 @@
     <view class="resource-library-overlay" :class="{ active: showResourceLibrary }" @click="showResourceLibrary = false">
       <view class="resource-library-panel" @click.stop>
         <view class="resource-library-header">
-          <h2 class="resource-library-title">资料库</h2>
-          <button class="resource-library-close" @click="showResourceLibrary = false">&times;</button>
+          <view class="resource-header-top">
+            <h3 class="resource-library-title">资料库</h3>
+            <view class="resource-library-close" @click="showResourceLibrary = false">✕</view>
+          </view>
+          <view class="resource-search-container">
+            <view class="search-box-inner">
+              <view class="search-icon-left">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+              </view>
+              
+              <input 
+                type="text" 
+                class="resource-search-input-new" 
+                placeholder="搜索已上传的课件..." 
+                v-model="searchKeyword" 
+                @focus="handleSearchFocus" 
+                @blur="handleSearchBlur" 
+                confirm-type="search" 
+              />
+              
+              <view class="search-action-btn" @click="handleSearchConfirm">
+                <text>搜索</text>
+              </view>
+            </view>
+          </view>
         </view>
         
         <view class="resource-library-body">
-          <input 
-            type="text" 
-            class="resource-search-input" 
-            placeholder="搜索已上传的课件..."
-          />
-          
           <view class="resource-list">
-            <view class="resource-item">
+            <view class="resource-item" @click="toggleResourceSelect(0)">
               <view class="resource-icon pdf-icon">PDF</view>
               <view class="resource-info">
                 <text class="resource-name">计算机网络 - 第五章.pdf</text>
                 <text class="resource-meta">2.4 MB · 2026-05-12 上传</text>
               </view>
-              <view class="resource-checkbox checked">✓</view>
+              <input type="checkbox" class="resource-checkbox" :checked="selectedResources.includes(0)" @click.stop="toggleResourceSelect(0)" />
             </view>
             
-            <view class="resource-item">
+            <view class="resource-item" @click="toggleResourceSelect(1)">
               <view class="resource-icon doc-icon">DOC</view>
               <view class="resource-info">
                 <text class="resource-name">2026级教学大纲修订版.docx</text>
                 <text class="resource-meta">856 KB · 2026-05-10 上传</text>
               </view>
-              <view class="resource-checkbox"></view>
+              <input type="checkbox" class="resource-checkbox" :checked="selectedResources.includes(1)" @click.stop="toggleResourceSelect(1)" />
             </view>
             
-            <view class="resource-item">
+            <view class="resource-item" @click="toggleResourceSelect(2)">
               <view class="resource-icon ppt-icon">PPT</view>
               <view class="resource-info">
                 <text class="resource-name">TCP三次握手详析.pptx</text>
                 <text class="resource-meta">12.1 MB · 2026-04-28 上传</text>
               </view>
-              <view class="resource-checkbox"></view>
+              <input type="checkbox" class="resource-checkbox" :checked="selectedResources.includes(2)" @click.stop="toggleResourceSelect(2)" />
             </view>
             
             <view class="resource-upload-btn" @click="handleUploadResource">
@@ -477,6 +497,10 @@ const nodes = ref([]);
 const isUpdating = ref(false); 
 const currentView = ref('list');
 const showResourceLibrary = ref(false);
+const selectedResources = ref([0]);
+const searchKeyword = ref('');
+const searchFocused = ref(false);
+const hasSearchFocus = ref(false);
 const selectedAssignment = reactive({
   title: '',
   deadline: '',
@@ -1208,6 +1232,31 @@ const handleUploadResource = () => {
   showToast('功能开发中', 'info');
 };
 
+const toggleResourceSelect = (index) => {
+  const idx = selectedResources.value.indexOf(index);
+  if (idx > -1) {
+    selectedResources.value.splice(idx, 1);
+  } else {
+    selectedResources.value.push(index);
+  }
+};
+
+const focusSearch = () => {
+  searchFocused.value = true;
+};
+
+const handleSearchFocus = () => {
+  hasSearchFocus.value = true;
+};
+
+const handleSearchBlur = () => {
+  hasSearchFocus.value = false;
+};
+
+const handleSearchConfirm = () => {
+  console.log("执行搜索:", searchKeyword.value);
+};
+
 const confirmResourceAssociation = () => {
   showToast('资料关联成功', 'success');
   showResourceLibrary.value = false;
@@ -1565,138 +1614,200 @@ const confirmResourceAssociation = () => {
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 100;
+  background-color: rgba(0, 0, 0, 0);
+  z-index: 50;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.3s ease;
+  transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .resource-library-overlay.active {
   opacity: 1;
   pointer-events: auto;
+  background-color: rgba(0, 0, 0, 0.5);
 }
 
 .resource-library-panel {
-  position: absolute;
+  position: fixed;
   top: 0;
-  right: -420px;
-  width: 420px;
+  right: 0;
+  width: 400px;
   height: 100%;
   background-color: #ffffff;
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
-  transition: right 0.3s ease;
+  box-shadow: -20px 0 25px -5px rgba(0, 0, 0, 0.05), -10px 0 10px -5px rgba(0, 0, 0, 0.02);
+  transform: translateX(100%);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
+  border-left: 1px solid #f0f0f0;
 }
 
 .resource-library-overlay.active .resource-library-panel {
-  right: 0;
+  transform: translateX(0);
 }
 
 .resource-library-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24px;
+  padding: 32px;
   border-bottom: 1px solid #f0f0f0;
 }
 
+.resource-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
 .resource-library-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1a1a1a;
+  font-size: 20px;
+  font-weight: 700;
+  color: #1f2937;
   margin: 0;
 }
 
 .resource-library-close {
-  background: none;
-  border: none;
-  font-size: 24px;
-  color: #999;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background-color: transparent !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  font-size: 20px;
+  color: #9ca3af;
   cursor: pointer;
   padding: 0;
   line-height: 1;
-  transition: color 0.2s;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .resource-library-close:hover {
-  color: #666;
+  color: #6b7280;
+  background-color: #f3f4f6 !important;
+  background: #f3f4f6 !important;
 }
 
 .resource-library-body {
   flex: 1;
-  padding: 20px;
+  padding: 24px;
   overflow-y: auto;
 }
 
-.resource-search-input {
+.resource-search-container {
   width: 100%;
-  padding: 12px 16px;
-  border: 1px solid #e8e8e8;
-  border-radius: 12px;
-  font-size: 14px;
-  color: #333;
-  outline: none;
-  transition: border-color 0.2s;
+  margin-top: 8px;
+}
+
+.search-box-inner {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1.5px solid #f1f5f9;
+  border-radius: 16px;
+  height: 48px;
+  padding: 0 6px 0 16px;
   box-sizing: border-box;
-  margin-bottom: 20px;
+  transition: all 0.3s ease;
 }
 
-.resource-search-input:focus {
-  border-color: #722ed1;
+.search-box-inner:focus-within {
+  background: #ffffff;
+  border-color: #6366f1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.08);
 }
 
-.resource-search-input::placeholder {
-  color: #999;
+.search-icon-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.resource-search-input-new {
+  flex: 1;
+  height: 100%;
+  background: transparent;
+  border: none;
+  font-size: 14px;
+  color: #1f2937;
+  outline: none;
+  padding: 0;
+}
+
+.search-action-btn {
+  background: #6366f1;
+  color: white;
+  padding: 0 16px;
+  height: 36px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.1s;
+  margin-left: 8px;
+}
+
+.search-action-btn:active {
+  transform: scale(0.96);
+  background: #4f46e5;
 }
 
 .resource-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .resource-item {
   display: flex;
   align-items: center;
   padding: 16px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #f3f4f6;
+  border-radius: 24px;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .resource-item:hover {
-  background: #fff;
-  border-color: #d3adf7;
+  border-color: #e0e7ff;
+  background: rgba(99, 102, 241, 0.05);
 }
 
 .resource-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
-  font-weight: 600;
-  color: #fff;
-  margin-right: 14px;
+  font-size: 14px;
+  font-weight: 700;
   flex-shrink: 0;
+  margin-right: 16px;
 }
 
 .pdf-icon {
-  background: #ff6b6b;
+  background: #fef2f2;
+  color: #ef4444;
 }
 
 .doc-icon {
-  background: #6ba3ff;
+  background: #eff6ff;
+  color: #3b82f6;
 }
 
 .ppt-icon {
-  background: #ffb84d;
+  background: #fff7ed;
+  color: #f97316;
 }
 
 .resource-info {
@@ -1707,8 +1818,8 @@ const confirmResourceAssociation = () => {
 .resource-name {
   display: block;
   font-size: 14px;
-  font-weight: 500;
-  color: #333;
+  font-weight: 700;
+  color: #374151;
   margin-bottom: 4px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1717,28 +1828,23 @@ const confirmResourceAssociation = () => {
 
 .resource-meta {
   display: block;
-  font-size: 12px;
-  color: #999;
+  font-size: 10px;
+  color: #9ca3af;
 }
 
 .resource-checkbox {
   width: 20px;
   height: 20px;
-  border: 2px solid #d9d9d9;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  color: #722ed1;
+  border-radius: 50%;
+  border: 2px solid #d1d5db;
+  color: #6366f1;
+  cursor: pointer;
   flex-shrink: 0;
-  transition: all 0.2s;
 }
 
-.resource-checkbox.checked {
-  background: #722ed1;
-  border-color: #722ed1;
-  color: #fff;
+.resource-checkbox:checked {
+  background-color: #6366f1;
+  border-color: #6366f1;
 }
 
 .resource-upload-btn {
@@ -1746,42 +1852,44 @@ const confirmResourceAssociation = () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 24px;
-  border: 1px dashed #d9d9d9;
-  border-radius: 12px;
+  padding: 32px;
+  border: 2px dashed #e5e7eb;
+  border-radius: 32px;
   cursor: pointer;
-  color: #999;
+  color: #9ca3af;
   transition: all 0.2s;
+  margin-top: 24px;
 }
 
 .resource-upload-btn:hover {
-  border-color: #722ed1;
-  color: #722ed1;
-  background: #f9f0ff;
+  border-color: #e0e7ff;
+  color: #6366f1;
+  background: #faf5ff;
 }
 
 .upload-icon {
-  font-size: 24px;
+  font-size: 32px;
   font-weight: 300;
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .resource-library-footer {
-  padding: 20px 24px;
+  padding: 32px;
   border-top: 1px solid #f0f0f0;
 }
 
 .resource-confirm-btn {
   width: 100%;
-  padding: 14px;
-  background: #722ed1;
+  padding: 16px;
+  background: #6366f1;
   color: #fff;
   border: none;
-  border-radius: 12px;
+  border-radius: 20px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s;
+  box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.2);
 }
 
 .resource-confirm-btn:hover {
