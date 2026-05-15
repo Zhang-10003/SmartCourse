@@ -139,8 +139,7 @@
                       @click.stop="generateQuestionWithAI(index)" 
                       class="text-indigo-600 hover:text-indigo-700 text-sm font-medium cursor-pointer transition-colors flex items-center gap-1"
                     >
-                      <text>✨</text>
-                      <span>AI生成</span>
+                      <span>AI智能生成</span>
                     </view>
                     <view @click.stop="removeNode(index)" class="text-slate-400 hover:text-rose-500 text-lg cursor-pointer">×</view>
                   </view>
