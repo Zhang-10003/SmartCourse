@@ -64,8 +64,9 @@ const tasks = ref([
 ]);
 
 const goToAssignmentDetail = (index) => {
+  const task = tasks.value[index];
   uni.navigateTo({
-    url: `/pages/task/AssignmentDetail?id=${index + 1}`
+    url: `/pages/task/AssignmentDetail?id=${index + 1}&status=${task.statusType}`
   });
 };
 const goToRank = (index) => {

@@ -15,7 +15,9 @@
         <text class="value">{{ currentIndex + 1 }} / {{ questions.length }}</text>
       </view>
       <view class="timer-box" v-if="taskInfo.status !== 'finished'">
-        <text class="time-left">剩余 23:51</text>
+        <text class="time-left" :class="{ 'expired': taskInfo.status === 'expired' }">
+          {{ taskInfo.status === 'expired' ? '已截止' : taskInfo.status === 'submitted' ? '已提交' : '剩余 20:12' }}
+        </text>
       </view>
     </view>
 
@@ -30,7 +32,7 @@
             v-if="q.type === 'choice'"
             :index="index + 1"
             :question="q"
-            :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
+            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
             :correct-answer="q.correctAnswers"
             :model-value="q.userAnswer"
             @update:model-value="(val) => q.userAnswer = val"
@@ -40,7 +42,7 @@
             v-else-if="q.type === 'true_false'"
             :index="index + 1"
             :question="q"
-            :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
+            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
             :correct-answer="q.correctAnswers"
             :model-value="q.userAnswer"
             @update:model-value="(val) => q.userAnswer = val"
@@ -50,7 +52,7 @@
             v-else-if="q.type === 'fill_blank'"
             :index="index + 1"
             :question="q"
-            :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
+            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
             :correct-answers="q.correctAnswers"
             @answer-change="(val) => q.userAnswer = val"
           />
@@ -59,7 +61,7 @@
             v-else-if="q.type === 'short_answer'"
             :index="index + 1"
             :question="q"
-            :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
+            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
             :correct-answer="q.correctAnswers"
             :model-value="q.userAnswer"
             @update:model-value="(val) => q.userAnswer = val"
@@ -69,7 +71,7 @@
             v-else-if="q.type === 'matching'"
             :index="index + 1"
             :question="q"
-            :status="taskInfo.status === 'finished' ? 'result' : 'typing'"
+            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
             :correct-answers="q.correctAnswers"
             :model-value="q.userAnswer"
             @update:model-value="(val) => q.userAnswer = val"
@@ -78,6 +80,11 @@
           <QuestionCodeFill
             v-else-if="q.type === 'code_fill'"
             :data="{ index: index + 1, question: q }"
+          />
+          
+          <AIFeedback 
+            v-if="(taskInfo.status === 'expired' || taskInfo.status === 'finished' || taskInfo.status === 'submitted') && questionFeedbacks[index]" 
+            :res-json="questionFeedbacks[index]" 
           />
         </scroll-view>
       </swiper-item>
@@ -90,8 +97,8 @@
       </view>
       <button v-if="currentIndex < questions.length - 1" class="btn-action next" @click="next">下一题</button>
       <button v-else class="btn-action submit" @click="handleSubmit">
-        {{ taskInfo.status === 'finished' ? '返回' : '提交' }}
-      </button>
+            {{ taskInfo.status === 'finished' || taskInfo.status === 'submitted' ? '返回' : '提交' }}
+          </button>
     </view>
   </view>
 </template>
@@ -104,11 +111,30 @@ import QuestionFillBlank from '../../components/QuestionFillBlank.vue';
 import QuestionShortAnswer from '../../components/QuestionShortAnswer.vue';
 import QuestionMatching from '../../components/QuestionMatching.vue';
 import QuestionCodeFill from '../../components/QuestionCodeFill.vue';
+import AIFeedback from '../../components/AIFeedback.vue';
 
 const currentIndex = ref(0);
 const taskInfo = ref({
   title: '计算机网络周测 - TCP原理',
   status: 'ongoing' 
+});
+
+const questionFeedbacks = ref([
+  { score: '20/20', feedback: '回答正确！TCP是传输层协议，负责端到端的可靠数据传输。' },
+  { score: '15/20', feedback: '回答基本正确，但漏选了UDP。UDP也是传输层协议。' },
+  { score: '10/10', feedback: '回答正确！TCP是面向连接的可靠协议。' },
+  { score: '10/15', feedback: '第一空正确！第二空回答不够准确，网络层的主要功能是路由选择和分组转发。' },
+  { score: '5/20', feedback: '回答过于简略，需要详细描述三次握手的每个阶段及其目的。' },
+  { score: '3/10', feedback: '匹配完全错误，请重新学习OSI模型各层协议。' },
+  { score: '2/5', feedback: '堆栈操作理解有误，请复习汇编语言中push和call指令对SP的影响。' }
+]);
+
+import { onLoad } from '@dcloudio/uni-app';
+
+onLoad((options) => {
+  if (options?.status) {
+    taskInfo.value.status = options.status;
+  }
 });
 
 const questions = ref([
@@ -200,7 +226,7 @@ const next = () => {
 const handleSubmit = () => {
   console.log('用户答案汇总：', questions.value.map(q => q.userAnswer));
   
-  if (taskInfo.value.status === 'finished') {
+  if (taskInfo.value.status === 'finished' || taskInfo.value.status === 'submitted') {
     uni.navigateBack();
   } else {
     uni.showModal({
@@ -257,7 +283,15 @@ const goBack = () => uni.navigateBack();
     .label { color: #999; font-size: 26rpx; }
     .value { color: #333; font-weight: bold; font-size: 30rpx; }
   }
-  .time-left { color: #ff5e5e; font-size: 28rpx; font-weight: 500; }
+  .time-left { 
+    color: #ff5e5e; 
+    font-size: 28rpx; 
+    font-weight: 500; 
+    &.expired {
+      color: #ff5e5e;
+      font-weight: 600;
+    }
+  }
 }
 
 .question-swiper { 
