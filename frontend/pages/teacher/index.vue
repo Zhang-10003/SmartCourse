@@ -402,9 +402,14 @@
         <view class="rag-modal-body">
           <span class="section-label">文件列表</span>
           
+          <view v-if="ragFiles.length === 0" class="text-center py-10 text-slate-400">
+            <text class="text-lg">暂无文件</text>
+            <text class="text-sm block mt-2">请上传知识库文件</text>
+          </view>
+          
           <view 
             v-for="(file, index) in ragFiles" 
-            :key="index"
+            :key="file.id"
             class="file-item"
             :data-type="file.type"
             :style="{ animationDelay: file.delay, display: ragModal.activeTab === '全部' || ragModal.activeTab === file.type ? 'flex' : 'none' }"
@@ -422,12 +427,17 @@
                 <view class="size">{{ file.size }}</view>
               </view>
             </view>
-            <view class="status-badge">已完成</view>
+            <view class="status-badge">{{ file.status === 1 ? '已完成' : '上传中' }}</view>
           </view>
         </view>
 
         <view class="rag-modal-footer">
-          <view class="dropzone">
+          <view 
+            class="dropzone" 
+            @dragover="handleDragOver" 
+            @drop="handleDrop"
+            @click="handleFileInput"
+          >
             <view class="plus-icon-container">+</view>
             <view class="dropzone-text">将文件拖到此处，或<text style="color: #4f46e5;"> 点击浏览</text></view>
             <view class="dropzone-hint">支持 pdf, docx, txt 格式</view>
@@ -516,34 +526,44 @@
         
         <view class="resource-library-body">
           <view class="resource-list">
-            <view class="resource-item" @click="toggleResourceSelect(0)">
-              <view class="resource-icon pdf-icon">PDF</view>
-              <view class="resource-info">
-                <text class="resource-name">计算机网络 - 第五章.pdf</text>
-                <text class="resource-meta">2.4 MB · 2026-05-12 上传</text>
-              </view>
-              <input type="checkbox" class="resource-checkbox" :checked="selectedResources.includes(0)" @click.stop="toggleResourceSelect(0)" />
+            <view v-if="resourceList.length === 0" class="text-center py-10 text-slate-400">
+              <text class="text-lg">暂无资料</text>
+              <text class="text-sm block mt-2">请上传教学资料</text>
             </view>
             
-            <view class="resource-item" @click="toggleResourceSelect(1)">
-              <view class="resource-icon doc-icon">DOC</view>
-              <view class="resource-info">
-                <text class="resource-name">2026级教学大纲修订版.docx</text>
-                <text class="resource-meta">856 KB · 2026-05-10 上传</text>
+            <view 
+              v-for="(resource, index) in resourceList" 
+              :key="resource.id"
+              class="resource-item" 
+              :class="{ 'selected': selectedResources.includes(index) }"
+              @click="toggleResourceSelect(index)"
+            >
+              <view class="resource-checkbox-wrapper" @click.stop="toggleResourceSelect(index)">
+                <view class="resource-checkbox" :class="{ 'checked': selectedResources.includes(index) }">
+                  <text v-if="selectedResources.includes(index)" class="check-icon">✓</text>
+                </view>
               </view>
-              <input type="checkbox" class="resource-checkbox" :checked="selectedResources.includes(1)" @click.stop="toggleResourceSelect(1)" />
+              <view 
+                class="resource-icon" 
+                :class="{
+                  'pdf-icon': resource.type === 'PDF',
+                  'doc-icon': resource.type === 'DOCX',
+                  'txt-icon': resource.type === 'TXT',
+                  'ppt-icon': resource.type === 'PPTX'
+                }"
+              >{{ resource.type }}</view>
+              <view class="resource-info">
+                <text class="resource-name">{{ resource.name }}</text>
+                <text class="resource-meta">{{ resource.size }} · {{ resource.time }} 上传</text>
+              </view>
             </view>
             
-            <view class="resource-item" @click="toggleResourceSelect(2)">
-              <view class="resource-icon ppt-icon">PPT</view>
-              <view class="resource-info">
-                <text class="resource-name">TCP三次握手详析.pptx</text>
-                <text class="resource-meta">12.1 MB · 2026-04-28 上传</text>
-              </view>
-              <input type="checkbox" class="resource-checkbox" :checked="selectedResources.includes(2)" @click.stop="toggleResourceSelect(2)" />
-            </view>
-            
-            <view class="resource-upload-btn" @click="handleUploadResource">
+            <view 
+              class="resource-upload-btn" 
+              @click="handleResourceUploadClick"
+              @dragover="handleResourceDragOver"
+              @drop="handleResourceDrop"
+            >
               <text class="upload-icon">+</text>
               <text>上传新资料</text>
             </view>
@@ -577,10 +597,86 @@ const nodes = ref([]);
 const isUpdating = ref(false); 
 const currentView = ref('list');
 const showResourceLibrary = ref(false);
-const selectedResources = ref([0]);
+const selectedResources = ref([]);
 const searchKeyword = ref('');
 const searchFocused = ref(false);
 const hasSearchFocus = ref(false);
+const resourceList = ref([]);
+
+const fetchResourceList = async () => {
+  try {
+    const baseUrl = 'http://localhost:8000';
+    const response = await fetch(`${baseUrl}/api/rag/knowledge-base`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    const result = await response.json();
+    if (result.code === 200) {
+      resourceList.value = result.data.map((file, index) => ({
+        id: file.id,
+        name: file.file_name,
+        type: file.file_type.toUpperCase(),
+        size: formatFileSize(file.file_size),
+        time: file.upload_time
+      }));
+    }
+  } catch (error) {
+    console.error('获取资源列表失败:', error);
+  }
+};
+
+const handleResourceUpload = async (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  try {
+    const baseUrl = 'http://localhost:8000';
+    const response = await fetch(`${baseUrl}/api/rag/knowledge-base`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    const result = await response.json();
+    if (result.code === 200) {
+      uni.showToast({ title: '上传成功', icon: 'success' });
+      fetchResourceList();
+    } else {
+      uni.showToast({ title: result.message || '上传失败', icon: 'none' });
+    }
+  } catch (error) {
+    console.error('上传失败:', error);
+    uni.showToast({ title: '上传失败', icon: 'none' });
+  }
+};
+
+const handleResourceUploadClick = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.pdf,.docx,.txt,.pptx';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      await handleResourceUpload(file);
+    }
+  };
+  input.click();
+};
+
+const handleResourceDrop = (e) => {
+  e.preventDefault();
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    handleResourceUpload(files[0]);
+  }
+};
+
+const handleResourceDragOver = (e) => {
+  e.preventDefault();
+};
 const selectedAssignment = reactive({
   title: '',
   deadline: '',
@@ -646,17 +742,141 @@ const ragModal = reactive({
   activeTab: '全部'
 });
 
-const ragFiles = [
-  { type: 'pdf', name: '2026交付标准说明书.pdf', size: '2.4 MB', delay: '0s' },
-  { type: 'docx', name: '产品需求文档_v1.2.docx', size: '1.1 MB', delay: '0.8s' },
-  { type: 'txt', name: '快捷API配置指令集.txt', size: '45 KB', delay: '1.6s' },
-  { type: 'pdf', name: '年度财务清算摘要.pdf', size: '5.8 MB', delay: '2.4s' }
-];
-
+const ragFiles = ref([]);
 const ragTabs = ['全部', 'pdf', 'docx', 'txt'];
+
+const formatFileSize = (bytes) => {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+};
+
+const fetchKnowledgeBase = async () => {
+  try {
+    const baseUrl = 'http://localhost:8000';
+    const type = ragModal.activeTab === '全部' ? '' : ragModal.activeTab;
+    const url = type ? `${baseUrl}/api/rag/knowledge-base?file_type=${type}` : `${baseUrl}/api/rag/knowledge-base`;
+    console.log('获取知识库列表URL:', url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    const result = await response.json();
+    if (result.code === 200) {
+      ragFiles.value = result.data.map((file, index) => ({
+        id: file.id,
+        type: file.file_type,
+        name: file.file_name,
+        size: formatFileSize(file.file_size),
+        status: file.status,
+        delay: `${index * 0.2}s`
+      }));
+    }
+  } catch (error) {
+    console.error('获取知识库列表失败:', error);
+  }
+};
 
 const handleRAGTabClick = (tab) => {
   ragModal.activeTab = tab;
+  fetchKnowledgeBase();
+};
+
+const handleDragOver = (e) => {
+  e.preventDefault();
+};
+
+const handleDrop = async (e) => {
+  e.preventDefault();
+  const files = e.dataTransfer.files;
+  if (files.length > 0) {
+    await uploadFile(files[0]);
+  }
+};
+
+const uploadFile = async (file) => {
+  console.log('========== 开始上传文件 ==========');
+  console.log('文件名:', file.name);
+  console.log('文件类型:', file.type);
+  console.log('文件大小:', file.size, 'bytes');
+  console.log('文件大小(MB):', (file.size / (1024 * 1024)).toFixed(2));
+  
+  const formData = new FormData();
+  formData.append('file', file);
+  
+  try {
+    console.log('开始发送请求...');
+    const startTime = Date.now();
+    
+    const baseUrl = 'http://localhost:8000';
+    const url = `${baseUrl}/api/rag/knowledge-base`;
+    console.log('请求URL:', url);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    const endTime = Date.now();
+    console.log(`请求完成，耗时: ${endTime - startTime}ms`);
+    console.log('响应状态码:', response.status);
+    console.log('响应状态文本:', response.statusText);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`请求失败，状态码: ${response.status}`);
+      console.error('响应内容:', errorText);
+      uni.showToast({ title: `请求失败: ${response.status}`, icon: 'none' });
+      return;
+    }
+    
+    const result = await response.json();
+    console.log('响应JSON:', result);
+    
+    if (result.code === 200) {
+      console.log('上传成功！');
+      uni.showToast({ title: '上传成功', icon: 'success' });
+      fetchKnowledgeBase();
+    } else {
+      console.error('上传失败:', result.message);
+      uni.showToast({ title: result.message || '上传失败', icon: 'none' });
+    }
+  } catch (error) {
+    console.error('文件上传异常:', error);
+    console.error('异常类型:', error.name);
+    console.error('异常消息:', error.message);
+    if (error.stack) {
+      console.error('异常堆栈:', error.stack);
+    }
+    
+    // 判断错误类型
+    if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+      console.error('网络请求失败，可能是后端服务未启动或跨域问题');
+      uni.showToast({ title: '网络连接失败，请检查后端服务', icon: 'none' });
+    } else if (error.name === 'AbortError') {
+      uni.showToast({ title: '请求已取消', icon: 'none' });
+    } else {
+      uni.showToast({ title: `上传异常: ${error.message}`, icon: 'none' });
+    }
+  }
+};
+
+const handleFileInput = () => {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.pdf,.docx,.txt';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      await uploadFile(file);
+    }
+  };
+  input.click();
 };
 
 const questionTypes = [
@@ -845,6 +1065,7 @@ const handleNodeClick = (node, index) => {
   
   if (node.type === '教材/课件') {
     showResourceLibrary.value = true;
+    fetchResourceList();
     return;
   }
   
@@ -934,6 +1155,8 @@ const closeAIModal = () => {
 
 const openRAGModal = () => {
   ragModal.show = true;
+  ragModal.activeTab = '全部';
+  fetchKnowledgeBase();
 };
 
 const closeRAGModal = () => {
@@ -2013,15 +2236,52 @@ const confirmResourceAssociation = () => {
   align-items: center;
   padding: 16px;
   background: #ffffff;
-  border: 1px solid #f3f4f6;
-  border-radius: 24px;
+  border: 2px solid #e5e7eb;
+  border-radius: 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .resource-item:hover {
-  border-color: #e0e7ff;
-  background: rgba(99, 102, 241, 0.05);
+  border-color: #c4b5fd;
+  background: rgba(139, 92, 246, 0.03);
+}
+
+.resource-item.selected {
+  border-color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.08);
+}
+
+.resource-checkbox-wrapper {
+  margin-right: 14px;
+}
+
+.resource-checkbox {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d1d5db;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  background: #ffffff;
+}
+
+.resource-checkbox:hover {
+  border-color: #8b5cf6;
+}
+
+.resource-checkbox.checked {
+  background: #8b5cf6;
+  border-color: #8b5cf6;
+}
+
+.check-icon {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .resource-icon {
