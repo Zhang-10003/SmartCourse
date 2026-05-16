@@ -52,6 +52,7 @@
             <p class="text-slate-500 mt-2">拖拽左侧题型至画布，已在画布的题型可直接拖动位置。</p>
           </view>
           <view class="flex gap-4">
+            <button @click="openRAGModal" class="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-semibold shadow-sm hover:bg-slate-50 transition-all">RAG知识库管理</button>
             <button @click="openShareModal" class="bg-white border border-slate-200 px-6 py-3 rounded-2xl font-semibold shadow-sm hover:bg-slate-50 transition-all">发布作业</button>
             <button @click="saveWorkflow" class="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all">保存工作流</button>
           </view>
@@ -382,6 +383,59 @@
       </view>
     </view>
 
+    <view v-if="ragModal.show" class="fixed inset-0 z-30 flex items-center justify-center p-4">
+      <view @click="closeRAGModal" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></view>
+      <view class="rag-modal-card relative">
+        <view class="rag-modal-header">
+          <div class="modal-title">我的知识库</div>
+          <view class="filter-tabs">
+            <view 
+              v-for="tab in ragTabs" 
+              :key="tab"
+              class="tab"
+              :class="{ active: ragModal.activeTab === tab }"
+              @click="handleRAGTabClick(tab)"
+            >{{ tab }}</view>
+          </view>
+        </view>
+
+        <view class="rag-modal-body">
+          <span class="section-label">文件列表</span>
+          
+          <view 
+            v-for="(file, index) in ragFiles" 
+            :key="index"
+            class="file-item"
+            :data-type="file.type"
+            :style="{ animationDelay: file.delay, display: ragModal.activeTab === '全部' || ragModal.activeTab === file.type ? 'flex' : 'none' }"
+          >
+            <view class="file-info">
+              <view 
+                class="file-icon"
+                :style="{ 
+                  background: file.type === 'pdf' ? '#fef2f2' : file.type === 'docx' ? '#eff6ff' : '#f8fafc',
+                  color: file.type === 'pdf' ? '#ef4444' : file.type === 'docx' ? '#3b82f6' : '#64748b'
+                }"
+              >{{ file.type.toUpperCase() }}</view>
+              <view class="file-details">
+                <view class="name">{{ file.name }}</view>
+                <view class="size">{{ file.size }}</view>
+              </view>
+            </view>
+            <view class="status-badge">已完成</view>
+          </view>
+        </view>
+
+        <view class="rag-modal-footer">
+          <view class="dropzone">
+            <view class="plus-icon-container">+</view>
+            <view class="dropzone-text">将文件拖到此处，或<text style="color: #4f46e5;"> 点击浏览</text></view>
+            <view class="dropzone-hint">支持 pdf, docx, txt 格式</view>
+          </view>
+        </view>
+      </view>
+    </view>
+
     <view class="share-modal-overlay" :class="{ active: shareModal.show }" @click="handleShareOverlayClick">
       <view class="share-modal">
         <button class="share-modal-close" @click="closeShareModal">&times;</button>
@@ -586,6 +640,24 @@ const aiModal = reactive({
   difficulty: '中等',
   questionType: ''
 });
+
+const ragModal = reactive({
+  show: false,
+  activeTab: '全部'
+});
+
+const ragFiles = [
+  { type: 'pdf', name: '2026交付标准说明书.pdf', size: '2.4 MB', delay: '0s' },
+  { type: 'docx', name: '产品需求文档_v1.2.docx', size: '1.1 MB', delay: '0.8s' },
+  { type: 'txt', name: '快捷API配置指令集.txt', size: '45 KB', delay: '1.6s' },
+  { type: 'pdf', name: '年度财务清算摘要.pdf', size: '5.8 MB', delay: '2.4s' }
+];
+
+const ragTabs = ['全部', 'pdf', 'docx', 'txt'];
+
+const handleRAGTabClick = (tab) => {
+  ragModal.activeTab = tab;
+};
 
 const questionTypes = [
   { value: '', label: '自动' },
@@ -858,6 +930,14 @@ const closeAIModal = () => {
   aiModal.show = false;
   aiModal.prompt = '';
   aiModal.difficulty = '中等';
+};
+
+const openRAGModal = () => {
+  ragModal.show = true;
+};
+
+const closeRAGModal = () => {
+  ragModal.show = false;
 };
 
 const generateQuestion = async () => {
@@ -2057,5 +2137,227 @@ const confirmResourceAssociation = () => {
 .resource-confirm-btn:hover {
   background: #531dab;
   box-shadow: 0 4px 12px rgba(114, 46, 209, 0.3);
+}
+
+.rag-modal-card {
+  width: 560px;
+  height: 680px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
+  border-radius: 28px;
+  padding: 32px;
+  box-shadow: 0 20px 50px rgba(148, 163, 184, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.3s ease;
+}
+
+.rag-modal-card:hover {
+  box-shadow: 0 25px 60px rgba(148, 163, 184, 0.35);
+}
+
+.rag-modal-header {
+  flex-shrink: 0;
+  margin-bottom: 20px;
+}
+
+.modal-title {
+  font-size: 22px;
+  color: #0f172a;
+  font-weight: 600;
+  margin-bottom: 16px;
+  letter-spacing: 0.5px;
+}
+
+.filter-tabs {
+  display: flex;
+  gap: 8px;
+  background: rgba(241, 245, 249, 0.7);
+  padding: 6px;
+  border-radius: 14px;
+  margin-bottom: 20px;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 8px 0;
+  font-size: 13px;
+  color: #64748b;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  text-transform: uppercase;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.tab:hover {
+  color: #334155;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.tab.active {
+  color: #4f46e5;
+  background: #ffffff;
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.12);
+}
+
+.rag-modal-body {
+  flex-grow: 1;
+  overflow-y: auto;
+  margin-bottom: 24px;
+  padding-right: 4px;
+}
+
+.rag-modal-body::-webkit-scrollbar {
+  width: 0px;
+}
+
+.section-label {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 12px;
+  display: block;
+  font-weight: 500;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  padding: 16px 20px;
+  border-radius: 18px;
+  margin-bottom: 12px;
+  animation: listBreathe 4s ease-in-out infinite;
+}
+
+.file-info {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.file-icon {
+  width: 42px;
+  height: 42px;
+  background: #eef2ff;
+  color: #4f46e5;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.file-details .name {
+  font-size: 14px;
+  color: #1e293b;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+
+.file-details .size {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.status-badge {
+  font-size: 12px;
+  color: #10b981;
+  background: #ecfdf5;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+.rag-modal-footer {
+  flex-shrink: 0;
+}
+
+.dropzone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 18px;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  background: rgba(248, 250, 252, 0.6);
+  transition: all 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.dropzone:hover {
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.03);
+  transform: scale(1.01);
+}
+
+.plus-icon-container {
+  width: 48px;
+  height: 48px;
+  background: #4f46e5;
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px auto;
+  font-size: 26px;
+  font-weight: 300;
+  position: relative;
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.plus-icon-container::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.4);
+  animation: iconPulse 2.5s infinite cubic-bezier(0.25, 0, 0, 1);
+}
+
+.dropzone:hover .plus-icon-container {
+  transform: scale(1.08);
+  background: #4338ca;
+}
+
+.dropzone-text {
+  font-size: 14px;
+  color: #475569;
+  font-weight: 500;
+}
+
+.dropzone-hint {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 6px;
+}
+
+@keyframes listBreathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.01);
+  }
+  50% {
+    transform: scale(1.008);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.04);
+    border-color: rgba(99, 102, 241, 0.15);
+  }
+}
+
+@keyframes iconPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(79, 70, 229, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(79, 70, 229, 0);
+  }
 }
 </style>
