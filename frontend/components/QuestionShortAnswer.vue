@@ -13,11 +13,11 @@
     <div class="answer-area">
       <textarea
         class="answer-input"
-        :class="{ 'is-result': status === 'result' }"
-        :placeholder="status === 'result' ? '' : placeholder"
-        :value="value"
+        :class="{ 'is-result': status === 'result', 'is-disabled': disabled }"
+        :placeholder="(disabled || status === 'result') ? '' : placeholder"
+        :value="modelValue"
         @input="handleInput"
-        :disabled="status === 'result'"
+        :disabled="disabled || status === 'result'"
         rows="5"
       ></textarea>
     </div>
@@ -28,8 +28,7 @@
 export default {
   name: 'QuestionShortAnswer',
   props: {
-    // 外部绑定的答案内容
-    value: {
+    modelValue: {
       type: String,
       default: ''
     },
@@ -42,7 +41,10 @@ export default {
       required: true,
       default: () => ({ title: '' })
     },
-    // typing: 答题模式; result: 结果只读模式
+    disabled: {
+      type: Boolean,
+      default: false
+    },
     status: {
       type: String,
       default: 'typing'
@@ -54,12 +56,12 @@ export default {
   },
   methods: {
     handleInput(e) {
-      // 如果是结果模式，拒绝任何输入处理
-      if (this.status === 'result') return;
+      // 如果是结果模式或禁用模式，拒绝任何输入处理
+      if (this.status === 'result' || this.disabled) return;
       
       const val = e.target.value;
       // 仅向上传递数据，不维护内部副本以保持纯净
-      this.$emit('input', val);
+      this.$emit('update:modelValue', val);
       this.$emit('answer-change', val);
     }
   }
@@ -143,8 +145,10 @@ export default {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
-/* 结果模式 */
-.answer-input.is-result {
+/* 结果模式和禁用模式 */
+.answer-input.is-result,
+.answer-input.is-disabled,
+.answer-input:disabled {
   background-color: #f9f9f9;
   border-color: #e0e0e0;
   color: #666;

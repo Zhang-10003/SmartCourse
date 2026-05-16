@@ -32,7 +32,8 @@
             v-if="q.type === 'choice'"
             :index="index + 1"
             :question="q"
-            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
+            :disabled="taskInfo.status === 'submitted' || taskInfo.status === 'expired'"
+            :status="taskInfo.status === 'expired' ? 'result' : 'typing'"
             :correct-answer="q.correctAnswers"
             :model-value="q.userAnswer"
             @update:model-value="(val) => q.userAnswer = val"
@@ -42,7 +43,8 @@
             v-else-if="q.type === 'true_false'"
             :index="index + 1"
             :question="q"
-            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
+            :disabled="taskInfo.status === 'submitted' || taskInfo.status === 'expired'"
+            :status="taskInfo.status === 'expired' ? 'result' : 'typing'"
             :correct-answer="q.correctAnswers"
             :model-value="q.userAnswer"
             @update:model-value="(val) => q.userAnswer = val"
@@ -52,7 +54,8 @@
             v-else-if="q.type === 'fill_blank'"
             :index="index + 1"
             :question="q"
-            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
+            :disabled="taskInfo.status === 'submitted' || taskInfo.status === 'expired'"
+            :status="taskInfo.status === 'expired' ? 'result' : 'typing'"
             :correct-answers="q.correctAnswers"
             @answer-change="(val) => q.userAnswer = val"
           />
@@ -61,7 +64,8 @@
             v-else-if="q.type === 'short_answer'"
             :index="index + 1"
             :question="q"
-            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
+            :disabled="taskInfo.status === 'submitted' || taskInfo.status === 'expired'"
+            :status="taskInfo.status === 'expired' ? 'result' : 'typing'"
             :correct-answer="q.correctAnswers"
             :model-value="q.userAnswer"
             @update:model-value="(val) => q.userAnswer = val"
@@ -71,7 +75,8 @@
             v-else-if="q.type === 'matching'"
             :index="index + 1"
             :question="q"
-            :status="(taskInfo.status === 'finished' || taskInfo.status === 'submitted') ? 'result' : 'typing'"
+            :disabled="taskInfo.status === 'submitted' || taskInfo.status === 'expired'"
+            :status="taskInfo.status === 'expired' ? 'result' : 'typing'"
             :correct-answers="q.correctAnswers"
             :model-value="q.userAnswer"
             @update:model-value="(val) => q.userAnswer = val"
@@ -80,11 +85,13 @@
           <QuestionCodeFill
             v-else-if="q.type === 'code_fill'"
             :data="{ index: index + 1, question: q }"
+            :disabled="taskInfo.status === 'submitted' || taskInfo.status === 'expired'"
           />
           
           <AIFeedback 
-            v-if="(taskInfo.status === 'expired' || taskInfo.status === 'finished' || taskInfo.status === 'submitted') && questionFeedbacks[index]" 
+            v-if="(taskInfo.status === 'expired') && questionFeedbacks[index]" 
             :res-json="questionFeedbacks[index]" 
+            style="display:block;"
           />
         </scroll-view>
       </swiper-item>
@@ -116,7 +123,7 @@ import AIFeedback from '../../components/AIFeedback.vue';
 const currentIndex = ref(0);
 const taskInfo = ref({
   title: '计算机网络周测 - TCP原理',
-  status: 'ongoing' 
+  status: 'submitted' 
 });
 
 const questionFeedbacks = ref([
@@ -143,7 +150,7 @@ const questions = ref([
     question_title: '以下哪个协议属于传输层？',
     options: ['TCP', 'IP', 'HTTP', 'DNS'],
     isMultiple: false,
-    userAnswer: [],
+    userAnswer: [0],
     correctAnswers: [0]
   },
   { 
@@ -151,25 +158,25 @@ const questions = ref([
     question_title: '哪些是网络层协议？',
     options: ['IP', 'ICMP', 'UDP', 'ARP'],
     isMultiple: true,
-    userAnswer: [],
+    userAnswer: [0, 1],
     correctAnswers: [0, 1, 3]
   },
   { 
     type: 'true_false',
     question_title: 'TCP是一种无连接的协议。',
-    userAnswer: null,
+    userAnswer: false,
     correctAnswers: false
   },
   { 
     type: 'fill_blank',
     content: 'OSI模型分为????层，其中网络层的主要功能是????。',
-    userAnswer: [],
+    userAnswer: ['7', '数据传输'],
     correctAnswers: ['7', '路由选择']
   },
   { 
     type: 'short_answer',
     question_title: '简述TCP三次握手的过程。',
-    userAnswer: '',
+    userAnswer: 'TCP三次握手就是客户端和服务器之间交换三个报文。',
     correctAnswers: 'TCP三次握手过程：1. 客户端发送SYN包；2. 服务器发送SYN+ACK包；3. 客户端发送ACK包。'
   },
   { 
@@ -177,7 +184,7 @@ const questions = ref([
     question_title: '将协议与其对应的层次匹配',
     leftItems: ['TCP', 'IP', 'HTTP', 'ARP'],
     rightItems: ['传输层', '网络层', '应用层', '网络层'],
-    userAnswer: [],
+    userAnswer: [{ l: 0, r: 1 }, { l: 1, r: 0 }, { l: 2, r: 2 }, { l: 3, r: 3 }],
     correctAnswers: [{ l: 0, r: 0 }, { l: 1, r: 1 }, { l: 2, r: 2 }, { l: 3, r: 1 }]
   },
   { 
@@ -202,9 +209,9 @@ const questions = ref([
       SP3=????
   end start`,
     fields: [
-      { label: "SP1", value: "" },
-      { label: "IP1", value: "" },
-      { label: "SP2", value: "" },
+      { label: "SP1", value: "001Eh" },
+      { label: "IP1", value: "010Bh" },
+      { label: "SP2", value: "001Ch" },
       { label: "IP2", value: "" },
       { label: "SP3", value: "" }
     ],

@@ -23,7 +23,6 @@
         :key="'blank-' + idx"
         class="match-card"
         :class="{ 
-          /* 移除了 is-active，编辑状态下保持默认样式 */
           'is-correct': status === 'result' && isCorrect(idx),
           'is-wrong': status === 'result' && !isCorrect(idx),
           'is-disabled': disabled || status === 'result'
@@ -195,5 +194,20 @@ export default {
 }
 .cross::before { transform: rotate(45deg); }
 .cross::after { transform: rotate(-45deg); }
-.is-disabled { cursor: not-allowed; }
+.is-disabled { 
+  cursor: not-allowed; 
+  background-color: #fafafa;
+  border-color: #d9d9d9;
+}
+
+.is-disabled .code-input {
+  background-color: #f5f5f5;
+  border-color: #d9d9d9;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.is-disabled .card-label {
+  color: #999;
+}
 </style>

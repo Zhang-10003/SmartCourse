@@ -77,7 +77,6 @@ export default {
       const isRight = this.correctAnswer.includes(idx);
       const isResult = this.status === "result";
       
-      // 注意：这里逻辑修正，判断是否有答案
       const hasAnswer = this.selectedOptions && this.selectedOptions.length > 0;
 
       if (!isResult) {
@@ -178,6 +177,12 @@ export default {
 }
 .match-card.is-disabled {
   cursor: not-allowed;
+  background-color: #fafafa;
+  border-color: #d9d9d9;
+}
+
+.match-card.is-disabled .card-label {
+  color: #999;
 }
 .card-label {
   font-size: 16px;

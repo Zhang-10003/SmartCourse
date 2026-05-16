@@ -40,6 +40,14 @@
           
           <view 
             v-if="item.statusType === 'expired'" 
+            class="report-link" 
+            @click.stop="goToReport(index)"
+          >
+            <text class="report-icon">📊</text>
+            <text class="report-text">查看报告</text>
+          </view>
+          <view 
+            v-if="item.statusType === 'expired'" 
             class="rank-link" 
             @click.stop="goToRank(index)"
           >
@@ -67,6 +75,11 @@ const goToAssignmentDetail = (index) => {
   const task = tasks.value[index];
   uni.navigateTo({
     url: `/pages/task/AssignmentDetail?id=${index + 1}&status=${task.statusType}`
+  });
+};
+const goToReport = (index) => {
+  uni.navigateTo({
+    url: `/pages/task/ReportDetail?id=${index + 1}`
   });
 };
 const goToRank = (index) => {
@@ -190,43 +203,59 @@ const goToRank = (index) => {
   }
   
   .deadline { font-size: 14px; color: #999; }
+  
+  .card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+
+    .deadline {
+      font-size: 13px;
+      color: #999;
+    }
+
+    .report-link {
+      display: flex;
+      align-items: center;
+      background-color: #e6f7ff;
+      padding: 4px 10px;
+      border-radius: 100px;
+      border: 1px solid #91d5ff;
+      margin-right: 8px;
+
+      .report-icon {
+        font-size: 12px;
+        margin-right: 4px;
+      }
+
+      .report-text {
+        font-size: 12px;
+        color: #1890ff;
+        font-weight: 500;
+      }
+    }
+
+    .rank-link {
+      display: flex;
+      align-items: center;
+      background-color: #fff7e6;
+      padding: 4px 10px;
+      border-radius: 100px;
+      border: 1px solid #ffe58f;
+
+      .rank-icon {
+        font-size: 12px;
+        margin-right: 4px;
+      }
+
+      .rank-text {
+        font-size: 12px;
+        color: #d48806;
+        font-weight: 500;
+      }
+    }
+  }
 }
 .safe-bottom { height: 20px; }
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 10px;
-
-  .deadline {
-    font-size: 13px;
-    color: #999;
-  }
-
-  .rank-link {
-    display: flex;
-    align-items: center;
-    background-color: #fff7e6;
-    padding: 4px 10px;
-    border-radius: 100px;
-    border: 1px solid #ffe58f;
-    transition: all 0.2s;
-
-    &:active {
-      opacity: 0.7;
-      transform: scale(0.95);
-    }
-
-    .rank-icon {
-      font-size: 12px;
-      margin-right: 4px;
-    }
-
-    .rank-text {
-      font-size: 12px;
-      color: #d48806;
-      font-weight: 500;
-    }
-  }
-}
 </style>

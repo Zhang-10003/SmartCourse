@@ -13,23 +13,24 @@
     <div class="match-grid">
       <div class="match-column">
         <div 
-          v-for="(item, index) in question.leftItems" 
-          :key="'l-' + index"
+          v-for="(item, idx) in question.leftItems" 
+          :key="'l-' + idx"
           class="match-card"
           :class="{ 
-            'is-active': selectedLeft === index,
-            'is-matched': isLeftMatched(index) && isPairCorrect(index, 'left') 
+            'is-active': !disabled && selectedLeft === idx,
+            'is-matched': isLeftMatched(idx) && (disabled || isPairCorrect(idx, 'left')),
+            'is-disabled': disabled
           }"
-          :style="getMatchedStyle(index, 'left')"
-          @click="selectLeft(index)"
+          :style="getMatchedStyle(idx, 'left')"
+          @click="selectLeft(idx)"
         >
           <div class="card-body">
             <span class="card-label">{{ getItemLabel(item) }}</span>
           </div>
           <div 
             class="status-box" 
-            v-if="isLeftMatched(index) && isPairCorrect(index, 'left')" 
-            :style="getIconStyle(index, 'left')"
+            v-if="isLeftMatched(idx) && isPairCorrect(idx, 'left')" 
+            :style="getIconStyle(idx, 'left')"
           >
             <div class="checkmark"></div>
           </div>
@@ -38,23 +39,24 @@
 
       <div class="match-column">
         <div 
-          v-for="(item, index) in question.rightItems" 
-          :key="'r-' + index"
+          v-for="(item, idx) in question.rightItems" 
+          :key="'r-' + idx"
           class="match-card"
           :class="{ 
-            'is-active': selectedRight === index,
-            'is-matched': isRightMatched(index) && isPairCorrect(index, 'right')
+            'is-active': !disabled && selectedRight === idx,
+            'is-matched': isRightMatched(idx) && (disabled || isPairCorrect(idx, 'right')),
+            'is-disabled': disabled
           }"
-          :style="getMatchedStyle(index, 'right')"
-          @click="selectRight(index)"
+          :style="getMatchedStyle(idx, 'right')"
+          @click="selectRight(idx)"
         >
           <div class="card-body">
             <span class="card-label">{{ getItemLabel(item) }}</span>
           </div>
           <div 
             class="status-box" 
-            v-if="isRightMatched(index) && isPairCorrect(index, 'right')" 
-            :style="getIconStyle(index, 'right')"
+            v-if="isRightMatched(idx) && isPairCorrect(idx, 'right')" 
+            :style="getIconStyle(idx, 'right')"
           >
             <div class="checkmark"></div>
           </div>
@@ -72,13 +74,19 @@ export default {
       type: [Number, String],
       default: 1
     },
-    // 新增：状态 'typing' (答题中) 或 'result' (结果展示)
+    disabled: {
+      type: Boolean,
+      default: false
+    },
     status: {
       type: String,
       default: 'typing'
     },
-    // 新增：正确答案数组，例如 [{l: 0, r: 1}, {l: 1, r: 0}]
     correctAnswers: {
+      type: Array,
+      default: () => []
+    },
+    modelValue: {
       type: Array,
       default: () => []
     },
@@ -105,18 +113,26 @@ export default {
       ]
     }
   },
+  created() {
+    if (this.modelValue && this.modelValue.length > 0) {
+      this.completedMatches = this.modelValue.map((match, idx) => ({
+        ...match,
+        colorIndex: match.colorIndex !== undefined ? match.colorIndex : idx % this.colorPalette.length
+      }));
+    }
+  },
   methods: {
     getItemLabel(item) {
       if (typeof item === 'string') return item;
       return item.label || '';
     },
     selectLeft(index) {
-      if (this.status === 'result') return;
+      if (this.disabled || this.status === 'result') return;
       this.selectedLeft = (this.selectedLeft === index) ? null : index;
       this.checkMatch();
     },
     selectRight(index) {
-      if (this.status === 'result') return;
+      if (this.disabled || this.status === 'result') return;
       this.selectedRight = (this.selectedRight === index) ? null : index;
       this.checkMatch();
     },
@@ -133,6 +149,7 @@ export default {
         });
     
         this.$emit('answer-change', this.completedMatches);
+        this.$emit('update:modelValue', this.completedMatches);
         this.selectedLeft = null;
         this.selectedRight = null;
       }
@@ -147,7 +164,6 @@ export default {
     getMatchedStyle(index, side) {
       const match = this.completedMatches.find(m => side === 'left' ? m.l === index : m.r === index);
       if (match) {
-        // 如果是结果模式且配对错误，则不显示彩色
         if (this.status === 'result' && !this.isPairCorrect(index, side)) {
           return {};
         }
@@ -156,7 +172,7 @@ export default {
           backgroundColor: color.bg,
           borderColor: color.main,
           borderWidth: '2px',
-          transform: 'scale(1.02)'
+          transform: this.disabled ? 'none' : 'scale(1.02)'
         };
       }
       return {};
@@ -256,7 +272,7 @@ export default {
   box-sizing: border-box;
 }
 
-.match-card:hover:not([disabled]) {
+.match-card:hover:not(.is-disabled) {
   border-color: #49b972;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
@@ -265,6 +281,10 @@ export default {
   border: 1.5px dashed #666;
   background-color: #fafafa;
   transform: translateY(-2px);
+}
+
+.match-card.is-disabled {
+  pointer-events: none;
 }
 
 .card-body {
@@ -302,6 +322,16 @@ export default {
   border-width: 0 2.5px 2.5px 0;
   transform: rotate(45deg);
   margin-bottom: 2px;
+}
+
+.match-card.is-disabled {
+  background-color: #fafafa;
+  border-color: #d9d9d9;
+  cursor: not-allowed;
+}
+
+.match-card.is-disabled .card-label {
+  color: #999;
 }
 
 @media (max-width: 600px) {

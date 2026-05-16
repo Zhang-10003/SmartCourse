@@ -13,12 +13,13 @@
     <div class="code-editor-container">
       <div class="code-editor">
         <div v-for="(line, idx) in parsedLines" :key="idx" class="line-wrapper">
-          <div v-if="line.isInput" class="input-block">
+          <div v-if="line.isInput" class="input-block" :class="{ 'is-disabled': disabled }">
             <span class="input-label" v-html="line.prefix"></span>
             <input
               v-model="data.question.fields[line.fieldIndex].value"
               class="code-input"
               placeholder="????"
+              :disabled="disabled"
             />
           </div>
 
@@ -37,11 +38,14 @@
 export default {
   name: 'QuestionCodeFill',
   props: {
-    // 接收你提供的那种完整数据结构
     data: {
       type: Object,
       required: true,
       default: () => ({ index: 1, question: { title: '', code: '', fields: [] } })
+    },
+    disabled: {
+      type: Boolean,
+      default: false
     }
   },
   computed: {
@@ -173,5 +177,21 @@ export default {
   border: 1px solid #b8daff;
   border-radius: 4px;
   outline: none;
+}
+
+.code-input:disabled {
+  background-color: #f5f5f5;
+  border-color: #d9d9d9;
+  color: #999;
+  cursor: not-allowed;
+}
+
+.input-block.is-disabled {
+  background-color: #fafafa;
+  border-color: #d9d9d9;
+}
+
+.input-block.is-disabled .input-label {
+  color: #999;
 }
 </style>
