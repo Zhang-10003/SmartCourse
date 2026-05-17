@@ -64,6 +64,7 @@ def build_prompt(request: GenerateQuestionRequest) -> str:
         + "\n".join(json_examples) + "\n\n"
         + "请确保输出是有效的JSON格式！"
     )
+    
     return prompt
 
 def generate_with_llm(prompt: str) -> Dict[str, Any]:
@@ -169,74 +170,25 @@ def generate_mock_response(request: GenerateQuestionRequest) -> Dict[str, Any]:
     question_type = request.question_type if request.question_type else "单选题"
     return templates.get(question_type, templates["单选题"])
 
-@router.post("/ai/generate-question", response_model=GenerateQuestionResponse)
+@router.post("/ai/generate-question")
 async def generate_question(request: GenerateQuestionRequest):
-    print("="*60)
-    print("开始处理AI生成题目请求")
-    print(f"请求参数 - prompt: {request.prompt}")
-    print(f"请求参数 - difficulty: {request.difficulty}")
-    print(f"请求参数 - question_type: {request.question_type}")
-    
-    logger.info("="*60)
-    logger.info("开始处理AI生成题目请求")
-    logger.info("请求参数 - prompt: %s", request.prompt)
-    logger.info("请求参数 - difficulty: %s", request.difficulty)
-    logger.info("请求参数 - question_type: %s", request.question_type)
+    logger.info(f"AI生成题目 - prompt: {request.prompt}, difficulty: {request.difficulty}, type: {request.question_type}")
     
     try:
         full_prompt = build_prompt(request)
-        print("---------- 发送给LLM的完整提示词开始 ----------")
-        print(full_prompt)
-        print("---------- 发送给LLM的完整提示词结束 ----------")
-        
-        logger.info("---------- 发送给LLM的完整提示词开始 ----------")
-        logger.info(full_prompt)
-        logger.info("---------- 发送给LLM的完整提示词结束 ----------")
-        
-        print("\n开始调用LLM API...")
-        logger.info("\n开始调用LLM API...")
         
         result = generate_with_llm(full_prompt)
         
         if result is None:
-            print("LLM调用失败或返回None，使用模拟数据")
-            logger.info("LLM调用失败或返回None，使用模拟数据")
+            logger.info("LLM调用失败，使用模拟数据")
             result = generate_mock_response(request)
-        else:
-            print("---------- LLM返回的数据开始 ----------")
-            print(result)
-            print("---------- LLM返回的数据结束 ----------")
-            
-            logger.info("---------- LLM返回的数据开始 ----------")
-            logger.info("%s", result)
-            logger.info("---------- LLM返回的数据结束 ----------")
         
-        print(f"\n最终生成结果类型: {result.get('type')}")
-        print(f"最终生成结果标题: {result.get('title')}")
-        print(f"最终生成结果答案: {result.get('answer')}")
-        print(f"最终生成结果分数: {result.get('score')}")
-        print("题目生成成功")
-        print("="*60)
-        
-        logger.info("\n最终生成结果类型: %s", result.get('type'))
-        logger.info("最终生成结果标题: %s", result.get('title'))
-        logger.info("最终生成结果答案: %s", result.get('answer'))
-        logger.info("最终生成结果分数: %s", result.get('score'))
-        logger.info("题目生成成功")
-        logger.info("="*60)
+        logger.info(f"题目生成成功 - type: {result.get('type')}, title: {result.get('title')}")
         
         return {"success": True, "data": result, "message": "题目生成成功"}
         
     except Exception as e:
-        print("="*60)
-        print(f"生成题目失败: {str(e)}")
-        import traceback
-        print(traceback.format_exc())
-        print("="*60)
-        
-        logger.error("="*60)
-        logger.error("生成题目失败: %s", str(e))
+        logger.error(f"生成题目失败: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
-        logger.error("="*60)
         return {"success": False, "message": "生成题目失败: " + str(e)}

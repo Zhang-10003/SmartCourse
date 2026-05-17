@@ -383,6 +383,17 @@
       </view>
     </view>
 
+    <!-- 加载动画 -->
+    <view v-if="loadingState.show" class="fixed inset-0 z-40 flex items-center justify-center p-4">
+      <view class="absolute inset-0 bg-black/30 backdrop-blur-sm"></view>
+      <view class="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4">
+        <view class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></view>
+        <span class="text-indigo-900 font-medium text-lg">正在生成题目...</span>
+      </view>
+    </view>
+
+
+
     <view v-if="ragModal.show" class="fixed inset-0 z-30 flex items-center justify-center p-4">
       <view @click="closeRAGModal" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></view>
       <view class="rag-modal-card relative">
@@ -735,6 +746,10 @@ const aiModal = reactive({
   prompt: '',
   difficulty: '中等',
   questionType: ''
+});
+
+const loadingState = reactive({
+  show: false
 });
 
 const ragModal = reactive({
@@ -1169,7 +1184,9 @@ const generateQuestion = async () => {
     return;
   }
   
-  showToast('正在生成题目...', 'info');
+  // 立即关闭弹窗，显示加载动画
+  closeAIModal();
+  loadingState.show = true;
   
   try {
     const response = await fetch(CONFIG.baseUrl + '/api/ai/generate-question', {
@@ -1246,14 +1263,15 @@ const generateQuestion = async () => {
         });
       }
       
-      closeAIModal();
-      
+      loadingState.show = false;
       showToast('题目生成成功！', 'success');
     } else {
+      loadingState.show = false;
       showToast(result.message || '生成失败，请重试', 'error');
     }
   } catch (error) {
     console.error('生成题目失败:', error);
+    loadingState.show = false;
     showToast('生成失败，请检查网络连接', 'error');
   }
 };
