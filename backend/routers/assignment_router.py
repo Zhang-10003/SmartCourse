@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models import Assignment, Question, AssignmentShare, User, StudentAssignment
+from models import Assignment, Question, AssignmentShare, User, StudentAssignment, Submission, StudentAnswer
 from dependencies import get_session
 from schemas.assignment import (
     AssignmentCreate, 
@@ -9,10 +9,13 @@ from schemas.assignment import (
     QuestionCreate, 
     QuestionResponse,
     ShareCreate,
-    ShareResponse
+    ShareResponse,
+    SubmitRequest,
+    AnswerItem
 )
 from datetime import datetime
 import uuid
+import json
 from typing import Dict, Any
 
 router = APIRouter(prefix="/api", tags=["assignments"])
@@ -482,10 +485,22 @@ async def get_student_assignments(
         result = []
         now = datetime.now()
 
+        # 查询该学生已有的提交记录
+        submission_result = await session.execute(
+            select(Submission.submission_id, Submission.assignment_id).where(
+                Submission.student_id == student_id,
+                Submission.assignment_id.in_(assignment_ids) if assignment_ids else False
+            )
+        )
+        submitted_ids = {row.assignment_id for row in submission_result.all()}
+
         for assignment in assignments:
-            # 判断作业状态
-            status = "processing"
-            status_text = "进行中"
+            if assignment.assignment_id in submitted_ids:
+                status = "submitted"
+                status_text = "已提交"
+            else:
+                status = "processing"
+                status_text = "进行中"
 
             deadline = assignment.deadline
             if isinstance(deadline, str):
@@ -495,7 +510,7 @@ async def get_student_assignments(
                 except:
                     pass
 
-            if deadline and now > deadline:
+            if status == "processing" and deadline and now > deadline:
                 status = "expired"
                 status_text = "已截止"
 
@@ -503,9 +518,14 @@ async def get_student_assignments(
                 "assignment_id": assignment.assignment_id,
                 "title": assignment.assignment_title,
                 "deadline": deadline.strftime("%m-%d %H:%M") if hasattr(deadline, 'strftime') else str(assignment.deadline),
+                "deadline_ts": int(deadline.timestamp()) if hasattr(deadline, 'timestamp') else 0,
                 "statusType": status,
                 "statusText": status_text
             })
+
+        # 排序：进行中 → 已提交 → 已截止
+        status_priority = {"processing": 0, "submitted": 1, "expired": 2}
+        result.sort(key=lambda x: (status_priority.get(x["statusType"], 99), x.get("deadline", "")))
 
         print(f"返回 {len(result)} 个作业数据")
         return {"success": True, "data": result}
@@ -515,3 +535,193 @@ async def get_student_assignments(
         print(f"获取作业列表失败: {str(e)}")
         print(traceback.format_exc())
         return {"success": False, "message": f"获取作业列表失败: {str(e)}"}
+
+
+@router.post("/submit", response_model=dict)
+async def submit_assignment(
+    req: SubmitRequest,
+    session: AsyncSession = Depends(get_session)
+):
+    """学生提交作业"""
+    try:
+        print(f"学生 {req.student_id} 提交作业 {req.assignment_id}")
+
+        # 1. 检查是否已提交
+        existing = await session.execute(
+            select(Submission).where(
+                Submission.assignment_id == req.assignment_id,
+                Submission.student_id == req.student_id
+            )
+        )
+        if existing.scalar_one_or_none():
+            return {"success": False, "message": "已提交过该作业"}
+
+        # 2. 获取所有题目
+        questions_result = await session.execute(
+            select(Question).where(Question.assignment_id == req.assignment_id)
+        )
+        questions = {q.question_id: q for q in questions_result.scalars().all()}
+
+        # 3. 创建提交记录
+        submission = Submission(
+            assignment_id=req.assignment_id,
+            student_id=req.student_id,
+            submit_time=datetime.now(),
+            status="submitted"
+        )
+        session.add(submission)
+        await session.flush()
+
+        # 4. 逐题判分
+        total_score = 0
+        answer_records = []
+        for ans in req.answers:
+            question = questions.get(ans.question_id)
+            if not question:
+                continue
+
+            correct = json.loads(question.correct_answers) if question.correct_answers else None
+            user_ans = json.loads(ans.answer) if ans.answer else None
+            is_correct, score = grade_answer(question.type, user_ans, correct, question.score)
+
+            total_score += score
+            answer_records.append({
+                "submission_id": submission.submission_id,
+                "question_id": ans.question_id,
+                "answer": ans.answer,
+                "is_correct": is_correct,
+                "score": score
+            })
+
+        # 5. 批量插入答案
+        await session.execute(
+            StudentAnswer.__table__.insert(), answer_records
+        )
+
+        # 6. 更新总分
+        submission.total_score = total_score
+        await session.commit()
+
+        print(f"提交成功，总分: {total_score}")
+        return {
+            "success": True,
+            "data": {
+                "submission_id": submission.submission_id,
+                "total_score": float(total_score) if total_score else 0,
+                "status": "submitted"
+            },
+            "message": "提交成功"
+        }
+
+    except Exception as e:
+        await session.rollback()
+        import traceback
+        print(f"提交作业失败: {str(e)}")
+        print(traceback.format_exc())
+        return {"success": False, "message": f"提交失败: {str(e)}"}
+
+
+@router.get("/submit/{assignment_id}/{student_id}", response_model=dict)
+async def get_submission(
+    assignment_id: int,
+    student_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    """获取学生某作业的提交记录和答案"""
+    try:
+        sub_result = await session.execute(
+            select(Submission).where(
+                Submission.assignment_id == assignment_id,
+                Submission.student_id == student_id
+            )
+        )
+        submission = sub_result.scalar_one_or_none()
+        if not submission:
+            return {"success": False, "message": "未提交"}
+
+        ans_result = await session.execute(
+            select(StudentAnswer).where(StudentAnswer.submission_id == submission.submission_id)
+        )
+        answers = ans_result.scalars().all()
+
+        return {
+            "success": True,
+            "data": {
+                "submission_id": submission.submission_id,
+                "submit_time": submission.submit_time.isoformat() if hasattr(submission.submit_time, 'isoformat') else str(submission.submit_time),
+                "total_score": float(submission.total_score) if submission.total_score else 0,
+                "answers": [
+                    {
+                        "question_id": a.question_id,
+                        "answer": a.answer,
+                        "is_correct": a.is_correct,
+                        "score": float(a.score) if a.score else 0
+                    }
+                    for a in answers
+                ]
+            }
+        }
+    except Exception as e:
+        import traceback
+        print(f"获取提交记录失败: {str(e)}")
+        print(traceback.format_exc())
+        return {"success": False, "message": f"获取提交记录失败: {str(e)}"}
+
+
+def grade_answer(q_type, user_ans, correct_ans, full_score):
+    """判分逻辑"""
+    if user_ans is None or correct_ans is None:
+        return False, 0
+
+    if q_type == 'choice':
+        if not isinstance(user_ans, list) or not isinstance(correct_ans, list):
+            return False, 0
+        if sorted(user_ans) == sorted(correct_ans):
+            return True, full_score
+        return False, 0
+
+    elif q_type == 'true_false':
+        return user_ans == correct_ans, full_score if user_ans == correct_ans else 0
+
+    elif q_type == 'fill_blank':
+        if not isinstance(user_ans, list) or not isinstance(correct_ans, list):
+            return False, 0
+        correct_count = 0
+        for i, c in enumerate(correct_ans):
+            if i < len(user_ans) and str(user_ans[i]).strip() == str(c).strip():
+                correct_count += 1
+        if correct_count == len(correct_ans):
+            return True, full_score
+        total_blank = max(len(correct_ans), len(user_ans))
+        partial = int(full_score * correct_count / total_blank) if total_blank > 0 else 0
+        return correct_count == total_blank, partial
+
+    elif q_type == 'short_answer':
+        return True, full_score
+
+    elif q_type == 'matching':
+        if not isinstance(user_ans, list) or not isinstance(correct_ans, list):
+            return False, 0
+        user_pairs = sorted((p.get('l'), p.get('r')) for p in user_ans)
+        correct_pairs = sorted((p.get('l'), p.get('r')) for p in correct_ans)
+        if user_pairs == correct_pairs:
+            return True, full_score
+        correct_matches = sum(1 for up in user_pairs if up in correct_pairs)
+        total_pairs = len(correct_pairs)
+        partial = int(full_score * correct_matches / total_pairs) if total_pairs > 0 else 0
+        return correct_matches == total_pairs, partial
+
+    elif q_type == 'code_fill':
+        if not isinstance(user_ans, list) or not isinstance(correct_ans, list):
+            return False, 0
+        correct_count = 0
+        for i, c in enumerate(correct_ans):
+            if i < len(user_ans) and str(user_ans[i]).strip() == str(c).strip():
+                correct_count += 1
+        if correct_count == len(correct_ans):
+            return True, full_score
+        total_fields = max(len(correct_ans), len(user_ans))
+        partial = int(full_score * correct_count / total_fields) if total_fields > 0 else 0
+        return correct_count == total_fields, partial
+
+    return False, 0

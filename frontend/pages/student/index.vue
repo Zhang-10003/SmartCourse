@@ -259,7 +259,7 @@ export default {
     goToAssignmentDetail(index) {
       const task = this.tasks[index];
       uni.navigateTo({
-        url: `/pages/task/AssignmentDetail?id=${task.assignment_id}&status=${task.statusType}`
+        url: `/pages/task/AssignmentDetail?id=${task.assignment_id}&status=${task.statusType}&title=${encodeURIComponent(task.title)}&deadline_ts=${task.deadline_ts || 0}`
       });
     },
     goToReport(index) {

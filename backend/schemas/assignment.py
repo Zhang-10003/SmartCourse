@@ -73,6 +73,19 @@ class ShareResponse(BaseModel):
     created_at: datetime
 
 
+class AnswerItem(BaseModel):
+    """单题答案"""
+    question_id: int
+    answer: str  # JSON 字符串，前端序列化后传入
+
+
+class SubmitRequest(BaseModel):
+    """提交作业请求"""
+    assignment_id: int
+    student_id: int
+    answers: list[AnswerItem]
+
+
 class SuccessResponse(BaseModel):
     """成功响应模型"""
     success: bool = True

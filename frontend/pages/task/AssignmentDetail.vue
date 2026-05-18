@@ -16,7 +16,7 @@
       </view>
       <view class="timer-box" v-if="taskInfo.status !== 'finished'">
         <text class="time-left" :class="{ 'expired': taskInfo.status === 'expired' }">
-          {{ taskInfo.status === 'expired' ? '已截止' : taskInfo.status === 'submitted' ? '已提交' : '剩余 20:12' }}
+          {{ taskInfo.status === 'expired' ? '已截止' : taskInfo.status === 'submitted' ? '已提交' : countdownText }}
         </text>
       </view>
     </view>
@@ -111,7 +111,9 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onUnmounted } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
+import request from '@/utils/request.js';
 import QuestionMultipleChoice from '../../components/QuestionMultipleChoice.vue';
 import QuestionTrueFalse from '../../components/QuestionTrueFalse.vue';
 import QuestionFillBlank from '../../components/QuestionFillBlank.vue';
@@ -121,104 +123,130 @@ import QuestionCodeFill from '../../components/QuestionCodeFill.vue';
 import AIFeedback from '../../components/AIFeedback.vue';
 
 const currentIndex = ref(0);
-const taskInfo = ref({
-  title: '计算机网络周测 - TCP原理',
-  status: 'submitted' 
-});
+const taskInfo = ref({ title: '', status: '' });
+const questions = ref([]);
+const questionFeedbacks = ref([]);
+const loading = ref(true);
+const countdownText = ref('');
 
-const questionFeedbacks = ref([
-  { score: '20/20', feedback: '回答正确！TCP是传输层协议，负责端到端的可靠数据传输。' },
-  { score: '15/20', feedback: '回答基本正确，但漏选了UDP。UDP也是传输层协议。' },
-  { score: '10/10', feedback: '回答正确！TCP是面向连接的可靠协议。' },
-  { score: '10/15', feedback: '第一空正确！第二空回答不够准确，网络层的主要功能是路由选择和分组转发。' },
-  { score: '5/20', feedback: '回答过于简略，需要详细描述三次握手的每个阶段及其目的。' },
-  { score: '3/10', feedback: '匹配完全错误，请重新学习OSI模型各层协议。' },
-  { score: '2/5', feedback: '堆栈操作理解有误，请复习汇编语言中push和call指令对SP的影响。' }
-]);
-
-import { onLoad } from '@dcloudio/uni-app';
+let countdownTimer = null;
+let assignmentId = null;
 
 onLoad((options) => {
-  if (options?.status) {
-    taskInfo.value.status = options.status;
+  if (options?.status) taskInfo.value.status = options.status;
+  if (options?.title) taskInfo.value.title = decodeURIComponent(options.title);
+  if (options?.id) {
+    assignmentId = parseInt(options.id, 10);
+    fetchQuestions(assignmentId);
+  }
+  if (options?.deadline_ts && options.status === 'processing') {
+    const ts = parseInt(options.deadline_ts, 10) * 1000;
+    if (ts > 0) startCountdown(ts);
   }
 });
 
-const questions = ref([
-  { 
-    type: 'choice',
-    question_title: '以下哪个协议属于传输层？',
-    options: ['TCP', 'IP', 'HTTP', 'DNS'],
-    isMultiple: false,
-    userAnswer: [0],
-    correctAnswers: [0]
-  },
-  { 
-    type: 'choice',
-    question_title: '哪些是网络层协议？',
-    options: ['IP', 'ICMP', 'UDP', 'ARP'],
-    isMultiple: true,
-    userAnswer: [0, 1],
-    correctAnswers: [0, 1, 3]
-  },
-  { 
-    type: 'true_false',
-    question_title: 'TCP是一种无连接的协议。',
-    userAnswer: false,
-    correctAnswers: false
-  },
-  { 
-    type: 'fill_blank',
-    content: 'OSI模型分为????层，其中网络层的主要功能是????。',
-    userAnswer: ['7', '数据传输'],
-    correctAnswers: ['7', '路由选择']
-  },
-  { 
-    type: 'short_answer',
-    question_title: '简述TCP三次握手的过程。',
-    userAnswer: 'TCP三次握手就是客户端和服务器之间交换三个报文。',
-    correctAnswers: 'TCP三次握手过程：1. 客户端发送SYN包；2. 服务器发送SYN+ACK包；3. 客户端发送ACK包。'
-  },
-  { 
-    type: 'matching',
-    question_title: '将协议与其对应的层次匹配',
-    leftItems: ['TCP', 'IP', 'HTTP', 'ARP'],
-    rightItems: ['传输层', '网络层', '应用层', '网络层'],
-    userAnswer: [{ l: 0, r: 1 }, { l: 1, r: 0 }, { l: 2, r: 2 }, { l: 3, r: 3 }],
-    correctAnswers: [{ l: 0, r: 0 }, { l: 1, r: 1 }, { l: 2, r: 2 }, { l: 3, r: 1 }]
-  },
-  { 
-    type: 'code_fill',
-    question_title: '程序跟踪分析',
-    code: `start: 
-    mov ax, 1000h ; 设置起始段地址
-    mov ss, ax    ; 设置堆栈段
-    mov sp, 0020h ; 初始 SP = 0020H
-    
-    push ax        ; 将 AX 压栈
-      SP1=????
-      
-    call sub_proc ; 调用子程序 (当前 IP=0108H)
-      IP1=????
-      SP2=????
-  
-  sub_proc:
-    add ax, 05h   ; 执行加法
-    ret           ; 子程序返回
-      IP2=????
-      SP3=????
-  end start`,
-    fields: [
-      { label: "SP1", value: "001Eh" },
-      { label: "IP1", value: "010Bh" },
-      { label: "SP2", value: "001Ch" },
-      { label: "IP2", value: "" },
-      { label: "SP3", value: "" }
-    ],
-    userAnswer: [],
-    correctAnswers: ['001Eh', '010BH', '001Ch', '010BH', '0020H']
+function startCountdown(deadlineMs) {
+  const deadline = new Date(deadlineMs);
+  function tick() {
+    const now = new Date();
+    const diff = deadline - now;
+    if (diff <= 0) {
+      countdownText.value = '已截止';
+      taskInfo.value.status = 'expired';
+      if (countdownTimer) clearInterval(countdownTimer);
+      return;
+    }
+    const h = Math.floor(diff / 3600000);
+    const m = Math.floor((diff % 3600000) / 60000);
+    const s = Math.floor((diff % 60000) / 1000);
+    countdownText.value = `剩余 ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
-]);
+  tick();
+  countdownTimer = setInterval(tick, 1000);
+}
+
+onUnmounted(() => {
+  if (countdownTimer) clearInterval(countdownTimer);
+});
+
+async function fetchQuestions(assignmentId) {
+  try {
+    const [qRes, subRes] = await Promise.all([
+      request.get(`/api/questions?assignment_id=${assignmentId}`),
+      taskInfo.value.status === 'submitted' || taskInfo.value.status === 'expired'
+        ? request.get(`/api/submit/${assignmentId}/${uni.getStorageSync('userInfo')?.user_id}`).catch(() => null)
+        : null
+    ]);
+
+    if (qRes && qRes.success) {
+      questions.value = (qRes.data || []).map(mapBackendQuestion);
+
+      if (subRes && subRes.success) {
+        const answerMap = {};
+        for (const a of subRes.data.answers) {
+          answerMap[a.question_id] = a;
+        }
+        for (const q of questions.value) {
+          const saved = answerMap[q.question_id];
+          if (saved) {
+            q.userAnswer = JSON.parse(saved.answer);
+            if (q.type === 'code_fill' && q.fields && Array.isArray(q.userAnswer)) {
+              q.fields.forEach((f, i) => { f.value = q.userAnswer[i] || ''; });
+            }
+          }
+        }
+      }
+    } else {
+      uni.showToast({ title: qRes?.message || '获取题目失败', icon: 'none' });
+    }
+  } catch (e) {
+    console.error('获取题目失败:', e);
+    uni.showToast({ title: '获取题目失败', icon: 'none' });
+  } finally {
+    loading.value = false;
+  }
+}
+
+function mapBackendQuestion(q) {
+  let type = q.type;
+  const isMultiple = type === 'multiple_choice' || q.is_multiple;
+  if (type === 'multiple_choice') type = 'choice';
+
+  const mapped = {
+    question_id: q.question_id,
+    type,
+    question_title: q.question_title || '',
+    isMultiple,
+    analysis: q.analysis || '',
+    score: q.score || 0,
+    userAnswer: initUserAnswer(type),
+    correctAnswers: parseField(q.correct_answers),
+  };
+
+  if (q.options) mapped.options = parseField(q.options);
+  if (q.content) mapped.content = q.content;
+  if (q.code) mapped.code = q.code;
+  if (q.fields) mapped.fields = parseField(q.fields);
+  if (q.left_items) mapped.leftItems = parseField(q.left_items);
+  if (q.right_items) mapped.rightItems = parseField(q.right_items);
+
+  return mapped;
+}
+
+function parseField(val) {
+  if (!val) return null;
+  try { return JSON.parse(val); } catch { return val; }
+}
+
+function initUserAnswer(type) {
+  switch (type) {
+    case 'choice': return [];
+    case 'true_false': return null;
+    case 'short_answer': return '';
+    case 'matching': return [];
+    default: return null;
+  }
+}
 
 const prev = () => { 
   if (currentIndex.value > 0) currentIndex.value--; 
@@ -231,21 +259,59 @@ const next = () => {
 };
 
 const handleSubmit = () => {
-  console.log('用户答案汇总：', questions.value.map(q => q.userAnswer));
-  
   if (taskInfo.value.status === 'finished' || taskInfo.value.status === 'submitted') {
     uni.navigateBack();
-  } else {
-    uni.showModal({
-      title: '提示',
-      content: '确定提交本次测试吗？',
-      success: (res) => {
-        if (res.confirm) {
-          taskInfo.value.status = 'finished';
-        }
-      }
-    });
+    return;
   }
+
+  uni.showModal({
+    title: '提示',
+    content: '确定提交本次测试吗？',
+    success: async (modalRes) => {
+      if (!modalRes.confirm) return;
+
+      const userInfo = uni.getStorageSync('userInfo');
+      if (!userInfo || !userInfo.user_id) {
+        uni.showToast({ title: '请先登录', icon: 'none' });
+        return;
+      }
+
+      const answers = questions.value.map(q => {
+        let answer = q.userAnswer;
+        // code_fill: 从 fields 中提取答案
+        if (q.type === 'code_fill' && q.fields) {
+          answer = q.fields.map(f => f.value || '');
+        }
+        return {
+          question_id: q.question_id,
+          answer: JSON.stringify(answer ?? '')
+        };
+      });
+
+      uni.showLoading({ title: '提交中...' });
+
+      try {
+        const res = await request.post('/api/submit', {
+          assignment_id: assignmentId,
+          student_id: userInfo.user_id,
+          answers
+        });
+
+        uni.hideLoading();
+
+        if (res && res.success) {
+          taskInfo.value.status = 'submitted';
+          uni.showToast({ title: '提交成功', icon: 'success' });
+        } else {
+          uni.showToast({ title: res?.message || '提交失败', icon: 'none' });
+        }
+      } catch (e) {
+        uni.hideLoading();
+        console.error('提交异常:', e);
+        uni.showModal({ title: '提交失败', content: e.message || JSON.stringify(e), showCancel: false });
+      }
+    }
+  });
 };
 
 const goBack = () => uni.navigateBack();
