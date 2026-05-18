@@ -27,15 +27,17 @@
       </view>
       
       <view v-if="status === '进行中'" class="action-link" @click="handleDetailClick">
-        <text>查看详情 →</text>
+        <text>查看详情 ➔</text>
       </view>
       
       <view v-if="status === '已截止'" class="ranking-btn-wrap">
         <view class="ranking-btn" @click="handleDetailClick">
-<!--          <text>🏆</text>
-          <text>查看排行</text> -->
 		  <text>➔</text>
 		  <text>查看详情</text>
+        </view>
+        <view class="report-btn" @click="handleReportClick">
+		  <text>➔</text>
+		  <text>查看报告</text>
         </view>
       </view>
     </view>
@@ -85,6 +87,9 @@ export default {
     },
     handleRankingClick() {
       this.$emit('ranking-click');
+    },
+    handleReportClick() {
+      this.$emit('report-click');
     }
   }
 };
@@ -227,5 +232,25 @@ export default {
 
 .ranking-btn:hover {
   background: #fef3c7;
+}
+
+.report-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #e0f2fe;
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.2s;
+  margin-left: 10px;
+}
+
+.report-btn:hover {
+  background: #bae6fd;
 }
 </style>

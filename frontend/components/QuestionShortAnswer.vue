@@ -12,7 +12,6 @@
 
     <div class="answer-area">
       <textarea
-        :key="'sa_' + (modelValue || '')"
         class="answer-input"
         :class="{ 'is-result': status === 'result', 'is-disabled': disabled }"
         :placeholder="(disabled || status === 'result') ? '' : placeholder"
@@ -39,7 +38,7 @@ export default {
   methods: {
     handleInput(e) {
       if (this.status === 'result' || this.disabled) return;
-      const val = e.target.value;
+      const val = e.detail?.value ?? e.target?.value ?? '';
       this.$emit('update:modelValue', val);
       this.$emit('answer-change', val);
     }

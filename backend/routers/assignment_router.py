@@ -16,7 +16,9 @@ from schemas.assignment import (
 from datetime import datetime
 import uuid
 import json
+import asyncio
 from typing import Dict, Any
+from services.ai_grader import grade_submission
 
 router = APIRouter(prefix="/api", tags=["assignments"])
 
@@ -408,6 +410,10 @@ async def get_teacher_assignments(
         assignment_with_deadline.sort(key=lambda x: x["deadline_date"] if x["deadline_date"] else datetime.min, reverse=True)
         
         # 构造最终返回数据
+        today_list = []
+        recent_list = []
+        today_date = now.date()
+
         for item in assignment_with_deadline:
             assignment = item["assignment"]
             deadline = item["deadline_date"]
@@ -425,6 +431,14 @@ async def get_teacher_assignments(
             except Exception as e:
                 print(f"查询 share_code 失败: {e}")
             
+            created_date = assignment.created_at
+            if isinstance(created_date, str):
+                from datetime import datetime as dt
+                try:
+                    created_date = dt.fromisoformat(created_date.replace('Z', '+00:00'))
+                except:
+                    pass
+
             assignment_data = {
                 "assignment_id": assignment.assignment_id,
                 "title": assignment.assignment_title,
@@ -433,14 +447,19 @@ async def get_teacher_assignments(
                 "share_code": share_code,
                 "created_at": assignment.created_at.isoformat() if hasattr(assignment.created_at, 'isoformat') else str(assignment.created_at)
             }
-            result.append(assignment_data)
+
+            if hasattr(created_date, 'date') and created_date.date() == today_date:
+                today_list.append(assignment_data)
+            else:
+                recent_list.append(assignment_data)
+
             print(f"作业: {assignment.assignment_title}, deadline: {deadline}, status: {status}, share_code: {share_code}")
 
         return {
             "success": True, 
             "data": {
-                "today": result,
-                "recent": []
+                "today": today_list,
+                "recent": recent_list
             }
         }
 
@@ -495,13 +514,6 @@ async def get_student_assignments(
         submitted_ids = {row.assignment_id for row in submission_result.all()}
 
         for assignment in assignments:
-            if assignment.assignment_id in submitted_ids:
-                status = "submitted"
-                status_text = "已提交"
-            else:
-                status = "processing"
-                status_text = "进行中"
-
             deadline = assignment.deadline
             if isinstance(deadline, str):
                 from datetime import datetime as dt
@@ -510,9 +522,15 @@ async def get_student_assignments(
                 except:
                     pass
 
-            if status == "processing" and deadline and now > deadline:
+            if deadline and now > deadline:
                 status = "expired"
                 status_text = "已截止"
+            elif assignment.assignment_id in submitted_ids:
+                status = "submitted"
+                status_text = "已提交"
+            else:
+                status = "processing"
+                status_text = "进行中"
 
             result.append({
                 "assignment_id": assignment.assignment_id,
@@ -603,6 +621,10 @@ async def submit_assignment(
         await session.commit()
 
         print(f"提交成功，总分: {total_score}")
+
+        # 异步触发 AI 批改
+        asyncio.create_task(grade_submission(submission.submission_id))
+
         return {
             "success": True,
             "data": {

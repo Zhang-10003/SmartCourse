@@ -25,7 +25,7 @@
         :class="{ 
           'is-correct': status === 'result' && isCorrect(idx),
           'is-wrong': status === 'result' && !isCorrect(idx),
-          'is-disabled': disabled || status === 'result'
+          'is-disabled': status === 'result'
         }"
       >
         <div class="card-body">

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import relationship
 from datetime import datetime
@@ -16,7 +16,7 @@ class Submission(Base):
     submit_time = Column(DateTime, nullable=False, default=datetime.now)
     status = Column(String(20), nullable=False, default="submitted")
     total_score = Column(DECIMAL(5, 2))
-    feedback = Column(String(500))
+    feedback = Column(Text)
     
     assignment = relationship("Assignment", back_populates="submissions")
     student_answers = relationship("StudentAnswer", back_populates="submission")

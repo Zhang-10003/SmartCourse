@@ -34,35 +34,39 @@ def build_prompt(request: GenerateQuestionRequest) -> str:
         "困难": "难度较高，适合高级学习者"
     }
     
-    # 安全检查：如果传入的难度不在map中，默认使用"中等"
     valid_difficulty = request.difficulty if request.difficulty in difficulty_map else "中等"
     difficulty_text = difficulty_map[valid_difficulty]
     
     type_info = ""
     if request.question_type:
         type_info = "题型：" + request.question_type + "\n\n"
-    
-    json_examples = [
-        '- 单选题(choice)：{"type":"choice","title":"题目内容","options":["选项A","选项B","选项C","选项D"],"answer":0,"analysis":"解析","score":10}',
-        '- 多选题(multiple_choice)：{"type":"multiple_choice","title":"题目内容","options":["选项A","选项B","选项C","选项D"],"answer":[0,1],"analysis":"解析","score":15}',
-        '- 判断题(true_false)：{"type":"true_false","title":"题目内容","answer":true,"analysis":"解析","score":5}',
-        '- 填空题(fill_blank)：{"type":"fill_blank","title":"题目内容","content":"题目内容（含空白处）","correctAnswers":["答案1","答案2"],"analysis":"解析","score":10}',
-        '- 代码填空(code_fill)：{"type":"code_fill","title":"题目内容","code":"代码内容","fields":[{"answer":"答案"}],"analysis":"解析","score":15}',
-        '- 匹配题(matching)：{"type":"matching","title":"题目内容","pairs":[{"left":"左侧1","right":"右侧1"},{"left":"左侧2","right":"右侧2"}],"analysis":"解析","score":15}',
-        '- 简答题(short_answer)：{"type":"short_answer","title":"题目内容","standardAnswer":"标准答案","analysis":"解析","score":20}'
-    ]
+
+    format_desc = {
+        "单选题": '{"type":"choice","title":"题目标题","options":["选项1","选项2","选项3","选项4"],"answer":0,"analysis":"解析","score":10}',
+        "多选题": '{"type":"multiple_choice","title":"题目标题","options":["选项1","选项2","选项3","选项4"],"answer":[0,1],"analysis":"解析","score":15}',
+        "判断题": '{"type":"true_false","title":"题干描述","answer":true,"analysis":"解析","score":5}',
+        "填空题": '{"type":"fill_blank","title":"题目标题","content":"含????空位的文本","correctAnswers":["答案1","答案2"],"analysis":"解析","score":10}',
+        "代码填空": '{"type":"code_fill","title":"题目标题","code":"代码内容（含????）","fields":[{"answer":"答案"}],"analysis":"解析","score":15}',
+        "匹配题": '{"type":"matching","title":"指导语","pairs":[{"left":"左侧项","right":"右侧项"}],"analysis":"解析","score":15}',
+        "简答题": '{"type":"short_answer","title":"题目描述","standardAnswer":"标准答案","analysis":"解析","score":20}'
+    }
+
+    format_text = ""
+    if request.question_type and request.question_type in format_desc:
+        format_text = f"输出格式（严格按此JSON结构，内容必须围绕用户给出的知识点）：\n{format_desc[request.question_type]}\n"
+    else:
+        format_text = "输出格式（JSON对象，必须包含type/title/answer/score/analysis等字段）：\n"
     
     prompt = (
-        "你是一个专业的题目生成助手，请根据以下要求生成一道高质量题目：\n\n"
-        + type_info
-        + "难度：" + difficulty_text + "\n\n"
-        + "题目要求：\n"
-        + request.prompt + "\n\n"
-        + "格式要求：\n"
-        + "请严格按照JSON格式输出，不要包含任何额外文本。\n\n"
-        + "输出格式说明：\n"
-        + "\n".join(json_examples) + "\n\n"
-        + "请确保输出是有效的JSON格式！"
+        f"你是一个专业的题目生成助手。根据以下要求生成一道高质量题目。\n\n"
+        f"【知识点范围】\n{request.prompt}\n\n"
+        f"【难度】\n{difficulty_text}\n\n"
+        f"{type_info}"
+        f"{format_text}\n"
+        f"【要求】\n"
+        f"1. 题目内容必须围绕上述知识点范围编写，不得套用固定模板文字\n"
+        f"2. title/options/正确项/错误项/分析/标准答案都要根据知识点实际编写\n"
+        f"3. 仅输出一个JSON对象，不要包含任何额外文本或markdown标记"
     )
     
     return prompt
@@ -82,8 +86,9 @@ def generate_with_llm(prompt: str) -> Dict[str, Any]:
         response = client.chat.completions.create(
             model=LLM_MODEL_NAME,
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.7,
-            max_tokens=1000
+            temperature=0.85,
+            top_p=0.9,
+            max_tokens=2048
         )
         
         result = response.choices[0].message.content

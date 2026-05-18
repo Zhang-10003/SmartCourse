@@ -274,6 +274,7 @@
                         :status="assignment.status"
                         :participants="fixedParticipants"
                         @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code)"
+                        @report-click="handleReportClick(assignment)"
                       />
                   </view>
                   <view v-else class="text-center py-10 text-slate-400">
@@ -294,6 +295,7 @@
                         :deadline="assignment.deadline" 
                         :status="assignment.status"
                         @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code)"
+                        @report-click="handleReportClick(assignment)"
                       />
                   </view>
                   <view v-else class="text-center py-10 text-slate-400">
@@ -1242,10 +1244,13 @@ const closeRAGModal = () => {
 };
 
 const generateQuestion = async () => {
-  if (!aiModal.prompt.trim()) {
+  const promptText = aiModal.prompt.trim();
+  if (!promptText) {
     showToast('请输入题目描述', 'error');
     return;
   }
+  const diffText = aiModal.difficulty;
+  const typeText = aiModal.questionType || undefined;
   
   // 立即关闭弹窗，显示加载动画
   closeAIModal();
@@ -1258,9 +1263,9 @@ const generateQuestion = async () => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        prompt: aiModal.prompt,
-        difficulty: aiModal.difficulty,
-        question_type: aiModal.questionType || undefined
+        prompt: promptText,
+        difficulty: diffText,
+        question_type: typeText
       })
     });
     
@@ -1676,6 +1681,11 @@ const openAssignmentDetail = (title, deadline, status, participants, shareCode) 
 
 const closeDetailView = () => {
   currentView.value = 'list';
+};
+
+const handleReportClick = (assignment) => {
+  console.log('点击查看报告:', assignment);
+  showToast('报告功能开发中', 'info');
 };
 
 const handleUploadResource = () => {

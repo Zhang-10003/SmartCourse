@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, Boolean, ForeignKey
 from sqlalchemy.types import DECIMAL
 from sqlalchemy.orm import relationship
 
@@ -15,6 +15,7 @@ class StudentAnswer(Base):
     answer = Column(String(1000))
     is_correct = Column(Boolean)
     score = Column(DECIMAL(5, 2))
+    feedback = Column(Text)
     
     submission = relationship("Submission", back_populates="student_answers")
     question = relationship("Question", back_populates="student_answers")
