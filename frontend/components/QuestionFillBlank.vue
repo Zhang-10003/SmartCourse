@@ -63,9 +63,10 @@ export default {
     },
     disabled: { type: Boolean, default: false },
     status: { type: String, default: 'typing' },
-    correctAnswers: { type: Array, default: () => [] }
+    correctAnswers: { type: Array, default: () => [] },
+    modelValue: { type: Array, default: () => [] }
   },
-  emits: ['answer-change'],
+  emits: ['answer-change', 'update:modelValue'],
   data() {
     return {
       localAnswers: []
@@ -84,6 +85,7 @@ export default {
   methods: {
     handleInput() {
       this.$emit('answer-change', [...this.localAnswers]);
+      this.$emit('update:modelValue', [...this.localAnswers]);
     },
     isCorrect(idx) {
       if (!this.correctAnswers || this.correctAnswers.length === 0) return false;
@@ -96,10 +98,14 @@ export default {
     'question.content': {
       immediate: true,
       handler(newContent) {
-        if (newContent) {
-          const count = this.parsedData.blanksCount;
-          this.localAnswers = new Array(count).fill('');
-        }
+        const count = this.parsedData.blanksCount;
+        const arr = new Array(count).fill('');
+        this.localAnswers = this.modelValue && this.modelValue.length === count ? [...this.modelValue] : arr;
+      }
+    },
+    modelValue: {
+      handler(val) {
+        if (val && val.length > 0) this.localAnswers = [...val];
       }
     }
   }

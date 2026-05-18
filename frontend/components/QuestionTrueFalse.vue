@@ -43,26 +43,19 @@ export default {
     index: { type: [Number, String], default: 1 },
     question: { type: Object, required: true },
     disabled: { type: Boolean, default: false },
-    // 新增：状态 'typing' (答题中) 或 'result' (展示结果)
-    status: {
-      type: String,
-      default: 'typing'
-    },
-    // 新增：正确答案
-    correctAnswer: {
-      type: Boolean,
-      default: null
-    }
+    status: { type: String, default: 'typing' },
+    correctAnswer: { type: Boolean, default: null },
+    modelValue: { type: Boolean, default: null }
   },
-  data() {
-    return {
-      selectedAnswer: null
+  computed: {
+    selectedAnswer() {
+      return this.modelValue;
     }
   },
   methods: {
     selectAnswer(answer) {
       if (this.disabled || this.status === 'result') return;
-      this.selectedAnswer = answer;
+      this.$emit('update:modelValue', answer);
       this.$emit('answer-change', answer);
     }
   }

@@ -12,6 +12,7 @@
 
     <div class="answer-area">
       <textarea
+        :key="'sa_' + (modelValue || '')"
         class="answer-input"
         :class="{ 'is-result': status === 'result', 'is-disabled': disabled }"
         :placeholder="(disabled || status === 'result') ? '' : placeholder"
@@ -28,39 +29,17 @@
 export default {
   name: 'QuestionShortAnswer',
   props: {
-    modelValue: {
-      type: String,
-      default: ''
-    },
-    index: {
-      type: [Number, String],
-      default: 1
-    },
-    question: {
-      type: Object,
-      required: true,
-      default: () => ({ title: '' })
-    },
-    disabled: {
-      type: Boolean,
-      default: false
-    },
-    status: {
-      type: String,
-      default: 'typing'
-    },
-    placeholder: {
-      type: String,
-      default: '请输入您的答案...'
-    }
+    modelValue: { type: String, default: '' },
+    index: { type: [Number, String], default: 1 },
+    question: { type: Object, required: true, default: () => ({ title: '' }) },
+    disabled: { type: Boolean, default: false },
+    status: { type: String, default: 'typing' },
+    placeholder: { type: String, default: '请输入您的答案...' }
   },
   methods: {
     handleInput(e) {
-      // 如果是结果模式或禁用模式，拒绝任何输入处理
       if (this.status === 'result' || this.disabled) return;
-      
       const val = e.target.value;
-      // 仅向上传递数据，不维护内部副本以保持纯净
       this.$emit('update:modelValue', val);
       this.$emit('answer-change', val);
     }

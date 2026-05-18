@@ -57,6 +57,8 @@
             :disabled="taskInfo.status === 'submitted' || taskInfo.status === 'expired'"
             :status="taskInfo.status === 'expired' ? 'result' : 'typing'"
             :correct-answers="q.correctAnswers"
+            :model-value="q.userAnswer"
+            @update:model-value="(val) => q.userAnswer = val"
             @answer-change="(val) => q.userAnswer = val"
           />
           
@@ -243,6 +245,7 @@ function initUserAnswer(type) {
     case 'choice': return [];
     case 'true_false': return null;
     case 'short_answer': return '';
+    case 'fill_blank': return [];
     case 'matching': return [];
     default: return null;
   }
