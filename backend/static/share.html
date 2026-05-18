@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SmartCourse - 作业分享</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .share-container {
+            background: white;
+            border-radius: 24px;
+            padding: 40px 30px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            margin: 0 auto 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .icon svg {
+            width: 40px;
+            height: 40px;
+            fill: white;
+        }
+        
+        h1 {
+            font-size: 24px;
+            color: #1a1a2e;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        
+        .description {
+            color: #666;
+            font-size: 15px;
+            margin-bottom: 32px;
+            line-height: 1.6;
+        }
+        
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 16px 24px;
+            border: none;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin-bottom: 12px;
+            text-decoration: none;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+        
+        .btn-secondary {
+            background: #f5f7fa;
+            color: #333;
+            border: 2px solid #e8ecf1;
+        }
+        
+        .btn-secondary:active {
+            background: #e8ecf1;
+        }
+        
+        .divider {
+            display: flex;
+            align-items: center;
+            margin: 20px 0;
+            color: #999;
+            font-size: 13px;
+        }
+        
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: #eee;
+        }
+        
+        .divider::before {
+            margin-right: 12px;
+        }
+        
+        .divider::after {
+            margin-left: 12px;
+        }
+        
+        .share-code-box {
+            background: #f8f9fa;
+            border: 2px dashed #ddd;
+            border-radius: 12px;
+            padding: 16px;
+            margin: 16px 0 8px;
+            text-align: center;
+        }
+        
+        .share-code-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: #667eea;
+            letter-spacing: 1px;
+            word-break: break-all;
+        }
+        
+        .hint {
+            font-size: 13px;
+            color: #999;
+            margin-top: 12px;
+            line-height: 1.6;
+        }
+        
+        .status-msg {
+            color: #667eea;
+            font-size: 14px;
+            margin-top: 12px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="share-container">
+        <div class="icon">
+            <svg viewBox="0 0 24 24">
+                <path d="M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 2v16h12V4H6zm2 3h8v2H8V9zm0 4h8v2H8v-2zm0 4h5v2H8v-2z"/>
+            </svg>
+        </div>
+        <h1>收到一份作业！</h1>
+        <p class="description" id="desc">请选择以下方式添加作业</p>
+        
+        <button class="btn btn-primary" id="openAppBtn">
+            📱 打开 SmartCourse App
+        </button>
+        
+        <div class="divider">或者</div>
+        
+        <button class="btn btn-secondary" id="copyCodeBtn">
+            📋 复制分享码
+        </button>
+        
+        <div class="share-code-box" id="shareCodeBox">
+            <p class="share-code-text" id="shareCodeText"></p>
+        </div>
+        
+        <p class="status-msg" id="statusMsg"></p>
+        <p class="hint" id="hintText">方式 1：点击上方按钮打开 App<br>方式 2：复制分享码后在 App 中粘贴</p>
+    </div>
+    
+    <script>
+        // ===== 获取分享码 =====
+        function getShareCode() {
+            const path = window.location.pathname;
+            const parts = path.split('/');
+            let code = parts[parts.length - 1];
+            
+            if (code && code.length > 0 && code !== 'share' && code !== '') {
+                return code;
+            }
+            
+            const params = new URLSearchParams(window.location.search);
+            return params.get('code');
+        }
+        
+        const shareCode = getShareCode();
+        console.log('分享码:', shareCode);
+        
+        const appUrl = shareCode ? 'smartcourse://share/' + shareCode : 'smartcourse://';
+        console.log('唤醒链接:', appUrl);
+        
+        // ===== 显示分享码 =====
+        if (shareCode) {
+            document.getElementById('shareCodeText').textContent = shareCode;
+        } else {
+            document.getElementById('desc').textContent = '链接无效，请检查后重试';
+            document.getElementById('openAppBtn').style.display = 'none';
+            document.getElementById('copyCodeBtn').style.display = 'none';
+        }
+        
+        // ===== 打开 App 功能 =====
+        document.getElementById('openAppBtn').addEventListener('click', function() {
+            if (!shareCode) {
+                alert('分享码无效！');
+                return;
+            }
+            
+            console.log('尝试打开 App...');
+            document.getElementById('statusMsg').textContent = '正在打开 App...';
+            
+            // 使用多种方式尝试
+            var iframe = document.createElement('iframe');
+            iframe.style.display = 'none';
+            iframe.src = appUrl;
+            document.body.appendChild(iframe);
+            
+            setTimeout(function() {
+                window.location.href = appUrl;
+            }, 100);
+            
+            setTimeout(function() {
+                var a = document.createElement('a');
+                a.href = appUrl;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }, 300);
+            
+            setTimeout(function() {
+                if (iframe && iframe.parentNode) {
+                    iframe.parentNode.removeChild(iframe);
+                }
+                document.getElementById('statusMsg').textContent = '';
+                document.getElementById('hintText').innerHTML = '如果没有打开 App，请使用方式 2 复制分享码';
+            }, 1500);
+        });
+        
+        // ===== 复制分享码功能 - 100% 可靠 =====
+        document.getElementById('copyCodeBtn').addEventListener('click', function() {
+            if (!shareCode) {
+                alert('分享码无效！');
+                return;
+            }
+            
+            document.getElementById('shareCodeBox').style.display = 'block';
+            
+            // 方式 1: 使用现代剪贴板 API
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shareCode).then(function() {
+                    showCopySuccess();
+                }).catch(function() {
+                    fallbackCopy();
+                });
+            } else {
+                // 方式 2: 使用传统方法
+                fallbackCopy();
+            }
+        });
+        
+        function fallbackCopy() {
+            var textArea = document.createElement('textarea');
+            textArea.value = shareCode;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            textArea.style.top = '0';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                var successful = document.execCommand('copy');
+                if (successful) {
+                    showCopySuccess();
+                } else {
+                    prompt('请手动复制以下分享码：', shareCode);
+                }
+            } catch (err) {
+                prompt('请手动复制以下分享码：', shareCode);
+            }
+            
+            document.body.removeChild(textArea);
+        }
+        
+        function showCopySuccess() {
+            document.getElementById('statusMsg').textContent = '✅ 分享码已复制！';
+            document.getElementById('copyCodeBtn').textContent = '✅ 已复制';
+            
+            setTimeout(function() {
+                document.getElementById('statusMsg').textContent = '';
+                document.getElementById('copyCodeBtn').textContent = '📋 复制分享码';
+            }, 2000);
+            
+            alert('✅ 分享码已复制到剪贴板！\n\n请打开 SmartCourse App，点击学生页面的「输入分享码」按钮粘贴即可。');
+        }
+        
+        // ===== 页面加载 =====
+        window.addEventListener('load', function() {
+            console.log('页面加载完成');
+            if (shareCode) {
+                // 延迟自动尝试
+                setTimeout(function() {
+                    console.log('自动尝试打开 App...');
+                }, 800);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -157,21 +157,33 @@ export default {
         });
         
         // 判断登录成功的条件（根据你的接口返回结构，这里假设有 user_id 或 access_token）
-        if (responseData && (responseData.user_id || responseData.access_token)) {
-          
-          // 1. 处理记住密码逻辑
-          this.saveRememberedPassword();
-          
-          // 2. 存储用户信息
-          uni.setStorageSync('userInfo', responseData);
-          
-          // 3. 成功时不弹窗，直接跳转
-          const userType = String(responseData.user_type);
-          if (userType === '1') {
-            uni.switchTab({ url: '/pages/student/index' });
-          } else {
-            uni.redirectTo({ url: '/pages/teacher/index' });
-          }
+          if (responseData && (responseData.user_id || responseData.access_token)) {
+            
+            // 1. 处理记住密码逻辑
+            this.saveRememberedPassword();
+            
+            // 2. 存储用户信息
+            uni.setStorageSync('userInfo', responseData);
+            
+            // 3. 检查是否有待处理的分享链接
+            const pendingShareCode = uni.getStorageSync('pendingShareCode');
+            const userType = String(responseData.user_type);
+            
+            if (pendingShareCode && userType === '1') {
+              // 学生且有待处理的分享码，先保留在 storage 中，然后跳转到学生页面
+              console.log('有待处理的分享码:', pendingShareCode);
+              // switchTab 不能传递参数，所以保留在 storage 中让学生页面 onShow 时读取
+              uni.switchTab({ 
+                url: '/pages/student/index' 
+              });
+            } else {
+              // 正常跳转
+              if (userType === '1') {
+                uni.switchTab({ url: '/pages/student/index' });
+              } else {
+                uni.redirectTo({ url: '/pages/teacher/index' });
+              }
+            }
           
         } else {
           // 4. 业务逻辑上的失败（例如：密码错误，responseData 里带着错误信息）

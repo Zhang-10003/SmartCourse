@@ -265,40 +265,19 @@
                       <view class="w-1 h-6 bg-indigo-600 rounded-full"></view>
                       <text class="text-lg font-bold text-slate-800">今天发布</text>
                   </view>
-                  <view class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <view v-if="assignmentList.today.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                       <AssignmentCard 
-                        title="计算机网络周测 - TCP原理" 
-                        deadline="截止: 05-10 18:00" 
-                        status="进行中"
-                        :participants="[
-                          { initial: 'A', bgClass: 'bg-indigo-100 text-indigo-600' },
-                          { initial: 'B', bgClass: 'bg-emerald-100 text-emerald-600' },
-                          { initial: '+12', bgClass: 'bg-slate-100 text-slate-400' }
-                        ]"
-                        @detail-click="openAssignmentDetail('计算机网络周测 - TCP原理', '截止: 05-10 18:00', '进行中', [])"
+                        v-for="(assignment, index) in assignmentList.today" 
+                        :key="assignment.assignment_id"
+                        :title="assignment.title" 
+                        :deadline="assignment.deadline" 
+                        :status="assignment.status"
+                        :participants="fixedParticipants"
+                        @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code)"
                       />
-                      <AssignmentCard 
-                        title="软件工程作业 - UML建模" 
-                        deadline="截止: 05-12 23:59" 
-                        status="进行中"
-                        :participants="[
-                          { initial: 'C', bgClass: 'bg-purple-100 text-purple-600' },
-                          { initial: 'D', bgClass: 'bg-pink-100 text-pink-600' },
-                          { initial: '+8', bgClass: 'bg-slate-100 text-slate-400' }
-                        ]"
-                        @detail-click="openAssignmentDetail('软件工程作业 - UML建模', '截止: 05-12 23:59', '进行中', [])"
-                      />
-                      <AssignmentCard 
-                        title="数据库系统设计报告" 
-                        deadline="截止: 05-15 18:00" 
-                        status="进行中"
-                        :participants="[
-                          { initial: 'E', bgClass: 'bg-orange-100 text-orange-600' },
-                          { initial: 'F', bgClass: 'bg-cyan-100 text-cyan-600' },
-                          { initial: '+15', bgClass: 'bg-slate-100 text-slate-400' }
-                        ]"
-                        @detail-click="openAssignmentDetail('数据库系统设计报告', '截止: 05-15 18:00', '进行中', [])"
-                      />
+                  </view>
+                  <view v-else class="text-center py-10 text-slate-400">
+                      <text class="text-lg">暂无作业</text>
                   </view>
               </section>
 
@@ -307,13 +286,18 @@
                       <view class="w-1 h-6 bg-slate-300 rounded-full"></view>
                       <text class="text-lg font-bold text-slate-800">近七天</text>
                   </view>
-                  <view class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80 hover:opacity-100 transition-opacity">
+                  <view v-if="assignmentList.recent.length > 0" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-80 hover:opacity-100 transition-opacity">
                       <AssignmentCard 
-                        title="操作系统同步互斥习题" 
-                        deadline="截止: 04-15 23:59" 
-                        status="已截止"
-                        @ranking-click="openAssignmentDetail('操作系统同步互斥习题', '截止: 04-15 23:59', '已截止', [])"
+                        v-for="(assignment, index) in assignmentList.recent" 
+                        :key="assignment.assignment_id"
+                        :title="assignment.title" 
+                        :deadline="assignment.deadline" 
+                        :status="assignment.status"
+                        @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code)"
                       />
+                  </view>
+                  <view v-else class="text-center py-10 text-slate-400">
+                      <text class="text-lg">暂无作业</text>
                   </view>
               </section>
           </view>
@@ -465,9 +449,26 @@
         
         <view class="share-modal-form-group">
           <span class="share-modal-label">分享链接</span>
+          <view class="share-modal-hint">学生点击链接即可打开 SmartCourse App 查看作业</view>
           <view class="share-modal-link-section">
-            <input type="text" class="share-modal-url" id="shareUrlInput" :value="shareModal.url" readonly />
-            <button class="share-modal-btn share-modal-copy" :class="{ copied: shareModal.copied }" @click="copyShareLink">
+            <input 
+              v-if="shareModal.url" 
+              type="text" 
+              class="share-modal-url" 
+              id="shareUrlInput" 
+              :value="shareModal.url" 
+              readonly 
+            />
+            <text 
+              v-else 
+              class="share-modal-url-placeholder"
+            >点击「确定」后生成分享链接</text>
+            <button 
+              v-if="shareModal.url" 
+              class="share-modal-btn share-modal-copy" 
+              :class="{ copied: shareModal.copied }" 
+              @click="copyShareLink"
+            >
               {{ shareModal.copied ? '已复制' : '复制链接' }}
             </button>
           </view>
@@ -591,7 +592,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import CONFIG from '@/utils/config.js';
 import QuestionChoiceEditor from '@/components/QuestionChoiceEditor.vue';
 import QuestionMultipleChoiceEditor from '@/components/QuestionMultipleChoiceEditor.vue';
@@ -603,7 +604,8 @@ import QuestionShortAnswerEditor from '@/components/QuestionShortAnswerEditor.vu
 import AssignmentCard from '@/components/AssignmentCard.vue';
 import AssignmentDetail from '@/components/AssignmentDetail.vue';
 
-const currentTab = ref('design');
+const savedTab = localStorage.getItem('teacherCurrentTab') || 'design';
+const currentTab = ref(savedTab);
 const nodes = ref([]);
 const isUpdating = ref(false); 
 const currentView = ref('list');
@@ -692,7 +694,8 @@ const selectedAssignment = reactive({
   title: '',
   deadline: '',
   status: '',
-  participants: []
+  participants: [],
+  share_code: ''
 });
 
 const selectedPortId = ref(null);
@@ -750,6 +753,66 @@ const aiModal = reactive({
 
 const loadingState = reactive({
   show: false
+});
+
+// 作业列表数据
+const assignmentList = reactive({
+  today: [],
+  recent: []
+});
+
+// 写死的 participants 数据
+const fixedParticipants = [
+  { initial: 'A', bgClass: 'bg-indigo-100 text-indigo-600' },
+  { initial: 'B', bgClass: 'bg-emerald-100 text-emerald-600' },
+  { initial: '+12', bgClass: 'bg-slate-100 text-slate-400' }
+];
+
+// 加载教师作业列表
+const loadTeacherAssignments = async () => {
+  try {
+    console.log('=== 开始加载作业列表 ===');
+    
+    const userInfo = uni.getStorageSync('userInfo') || localStorage.getItem('userInfo');
+    let userId = 1;
+    if (userInfo) {
+      const parsedInfo = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo;
+      userId = parsedInfo?.user_id || parsedInfo?.userId || 1;
+    }
+    
+    console.log('使用的userId:', userId);
+    
+    const url = CONFIG.baseUrl + `/api/teacher/${userId}/assignments`;
+    console.log('请求URL:', url);
+    
+    const response = await fetch(url);
+    const result = await response.json();
+    
+    console.log('接口返回结果:', result);
+    
+    if (result.success) {
+      assignmentList.today = result.data.today || [];
+      assignmentList.recent = result.data.recent || [];
+      console.log('作业列表已更新 - today:', assignmentList.today.length, '个作业');
+    }
+  } catch (error) {
+    console.error('加载作业列表失败:', error);
+  }
+};
+
+// 监听标签切换，切换到作业列表时加载数据，同时保存状态
+watch(currentTab, (newTab) => {
+  localStorage.setItem('teacherCurrentTab', newTab);
+  if (newTab === 'list') {
+    loadTeacherAssignments();
+  }
+});
+
+// 组件加载时也尝试加载一次
+onMounted(() => {
+  if (currentTab.value === 'list') {
+    loadTeacherAssignments();
+  }
 });
 
 const ragModal = reactive({
@@ -1393,8 +1456,8 @@ const openShareModal = () => {
   
   shareModal.deadline = currentDateTime;
   
-  const tempShareCode = generateShareCode();
-  shareModal.url = CONFIG.shareUrl + '/' + tempShareCode;
+  // 初始时不显示假链接，而是显示提示
+  shareModal.url = '';
   shareModal.show = true;
 };
 
@@ -1468,6 +1531,8 @@ const submitAssignment = async (questions) => {
       shareModal.url = CONFIG.shareUrl + '/' + shareResult.data.share_code;
       shareModal.copied = false;
       shareModal.show = true;
+      // 刷新作业列表
+      await loadTeacherAssignments();
     } else {
       showToast('生成分享链接失败: ' + (shareResult.message || '未知错误'), 'error');
     }
@@ -1505,7 +1570,11 @@ const copyShareLink = async () => {
 };
 
 const confirmShare = async () => {
+  // 1. 先关闭之前的弹窗
   closeShareModal();
+  
+  // 2. 显示加载状态
+  uni.showLoading({ title: '发布中...' });
   
   try {
     const deadline = shareModal.deadline ? shareModal.deadline.replace('T', ' ') + ':00' : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
@@ -1518,7 +1587,7 @@ const confirmShare = async () => {
     
     console.log('提交的数据:', assignmentData);
     
-    const assignmentResponse = await fetch('http://127.0.0.1:8000/api/assignments', {
+    const assignmentResponse = await fetch(CONFIG.baseUrl + '/api/assignments', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -1531,6 +1600,7 @@ const confirmShare = async () => {
     console.log('创建作业结果:', assignmentResult);
     
     if (!assignmentResult.success) {
+      uni.hideLoading();
       showToast('创建作业失败: ' + (assignmentResult.message || '未知错误'), 'error');
       return;
     }
@@ -1554,6 +1624,7 @@ const confirmShare = async () => {
       console.log(`题目 ${i + 1} 创建结果:`, questionResult);
       
       if (!questionResult.success) {
+        uni.hideLoading();
         showToast('创建题目失败: ' + (questionResult.message || '未知错误'), 'error');
         return;
       }
@@ -1570,26 +1641,37 @@ const confirmShare = async () => {
     const shareResult = await shareResponse.json();
     console.log('分享链接创建结果:', shareResult);
     
+    uni.hideLoading();
+    
     if (shareResult.success) {
-      shareModal.url = 'https://smartcourse.com/share/' + shareResult.data.share_code;
+      // 使用 HTTP 格式的分享链接
+      shareModal.url = CONFIG.shareUrl + '/' + shareResult.data.share_code;
       shareModal.copied = false;
+      // 关键：重新打开弹窗，让教师看到真链接！
+      shareModal.show = true;
       showToast('发布成功');
+      // 刷新作业列表，更新最新的 share_code
+      await loadTeacherAssignments();
     } else {
       showToast('生成分享链接失败: ' + (shareResult.message || '未知错误'), 'error');
     }
     
   } catch (error) {
+    uni.hideLoading();
     console.error('发布作业失败:', error);
     showToast('发布失败，请重试: ' + error.message, 'error');
   }
 };
 
-const openAssignmentDetail = (title, deadline, status, participants) => {
+const openAssignmentDetail = (title, deadline, status, participants, shareCode) => {
+  console.log('打开作业详情:', { title, deadline, status, shareCode });
   selectedAssignment.title = title;
   selectedAssignment.deadline = deadline;
   selectedAssignment.status = status;
-  selectedAssignment.participants = participants;
+  selectedAssignment.participants = participants || [];
+  selectedAssignment.share_code = shareCode || '';
   currentView.value = 'detail';
+  console.log('currentView 已设置为 detail');
 };
 
 const closeDetailView = () => {
@@ -1989,6 +2071,12 @@ const confirmResourceAssociation = () => {
   margin-bottom: 8px;
 }
 
+.share-modal-hint {
+  font-size: 13px;
+  color: #909399;
+  margin-bottom: 12px;
+}
+
 .share-modal-link-section {
   display: flex;
   gap: 10px;
@@ -2009,6 +2097,19 @@ const confirmResourceAssociation = () => {
 
 .share-modal-url:focus {
   border-color: #007bff;
+}
+
+.share-modal-url-placeholder {
+  flex: 1;
+  background-color: #f5f7fa;
+  height: 40px;
+  border: 1px dashed #c0c4cc;
+  border-radius: 8px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #909399;
+  display: flex;
+  align-items: center;
 }
 
 .share-modal-input {

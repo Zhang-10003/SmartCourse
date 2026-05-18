@@ -31,7 +31,7 @@
       </view>
       
       <view v-if="status === '已截止'" class="ranking-btn-wrap">
-        <view class="ranking-btn" @click="handleRankingClick">
+        <view class="ranking-btn" @click="handleDetailClick">
 <!--          <text>🏆</text>
           <text>查看排行</text> -->
 		  <text>➔</text>
