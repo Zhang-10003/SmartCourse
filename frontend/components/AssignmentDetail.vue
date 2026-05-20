@@ -66,23 +66,21 @@
         <text class="metric-label">已提交人数</text>
         <view class="metric-value-row">
           <text class="metric-number">{{ stats.submittedCount }}</text>
-          <text class="metric-badge">+2% vs 均值</text>
         </view>
       </view>
       <view class="metric-card">
         <text class="metric-label">平均得分</text>
         <view class="metric-value-row">
-          <text class="metric-number purple">{{ stats.avgScore }}</text>
+          <text class="metric-number purple">{{ stats.avgScore }} / {{ stats.totalScore }}</text>
           <view class="mini-progress-bar">
             <view class="mini-progress-fill"></view>
           </view>
         </view>
       </view>
       <view class="metric-card">
-        <text class="metric-label">优秀率 (A)</text>
+        <text class="metric-label">优秀率</text>
         <view class="metric-value-row">
           <text class="metric-number green">{{ stats.excellentRate }}</text>
-          <text class="metric-target">目标: 15%</text>
         </view>
       </view>
       <view class="metric-card alert-border">
@@ -265,6 +263,7 @@ export default {
       default: () => ({
         submittedCount: 57,
         avgScore: 6.3,
+        totalScore: 10,
         excellentRate: '22%',
         hardestQuestion: 'Q7'
       })
@@ -732,12 +731,32 @@ export default {
 
 .bar-chart-wrapper {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: flex-end;
   height: 200px;
   padding: 0 20px;
   border-bottom: 1px solid #e2e8f0;
   position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.bar-chart-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.bar-chart-wrapper::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.bar-chart-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.bar-chart-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }
 
 .chart-y-axis {
@@ -766,8 +785,9 @@ export default {
   display: flex;
   align-items: flex-end;
   justify-content: space-around;
-  gap: 8px;
-  flex: 1;
+  width: 100%;
+  flex-shrink: 0;
+  padding: 0 20px;
 }
 
 .bar-column {
@@ -775,7 +795,8 @@ export default {
   flex-direction: column;
   align-items: center;
   z-index: 2;
-  flex: 1;
+  min-width: 48px;
+  flex-shrink: 0;
 }
 
 .bar-active-fill {
@@ -789,6 +810,7 @@ export default {
   font-weight: 700;
   color: #1e293b;
   margin-top: 12px;
+  white-space: nowrap;
 }
 
 .table-card {

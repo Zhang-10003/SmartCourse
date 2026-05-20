@@ -993,6 +993,7 @@ const questionScores = [
 const assignmentStats = {
   submittedCount: 57,
   avgScore: 6.3,
+  totalScore: 10,
   excellentRate: '22%',
   hardestQuestion: 'Q7'
 };
