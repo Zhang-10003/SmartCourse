@@ -274,7 +274,7 @@
                         :status="assignment.status"
                         :participants="fixedParticipants"
                         :assignmentId="assignment.assignment_id"
-                        @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code)"
+                        @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code, assignment.deadline_ts, assignment.assignment_id)"
                         @report-click="handleReportClick(assignment)"
                         @close-click="handleCloseClick(assignment.assignment_id)"
                       />
@@ -297,7 +297,7 @@
                         :deadline="assignment.deadline" 
                         :status="assignment.status"
                         :assignmentId="assignment.assignment_id"
-                        @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code)"
+                        @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code, assignment.deadline_ts, assignment.assignment_id)"
                         @report-click="handleReportClick(assignment)"
                         @close-click="handleCloseClick(assignment.assignment_id)"
                       />
@@ -736,10 +736,27 @@ const handleResourceDragOver = (e) => {
 const selectedAssignment = reactive({
   title: '',
   deadline: '',
+  deadline_ts: 0,
   status: '',
   participants: [],
   share_code: ''
 });
+
+const assignmentStats = reactive({
+  submittedCount: 0,
+  totalStudents: 0,
+  avgScore: 0,
+  totalScore: 0,
+  excellentRate: '0%',
+  hardestQuestion: '—',
+  hardestErrorRate: 0
+});
+
+const questionScores = ref([]);
+const submittedStudents = ref([]);
+const unsubmittedStudents = ref([]);
+const detailAssignmentId = ref(null);
+let statsTimer = null;
 
 const selectedPortId = ref(null);
 const connections = ref([]);
@@ -936,6 +953,9 @@ const uploadFile = async (file) => {
   console.log('文件大小:', file.size, 'bytes');
   console.log('文件大小(MB):', (file.size / (1024 * 1024)).toFixed(2));
   
+  uploadStatus.message = '上传中...';
+  uploadStatus.type = 'loading';
+  
   const formData = new FormData();
   formData.append('file', file);
   
@@ -964,7 +984,11 @@ const uploadFile = async (file) => {
       const errorText = await response.text();
       console.error(`请求失败，状态码: ${response.status}`);
       console.error('响应内容:', errorText);
-      uni.showToast({ title: `请求失败: ${response.status}`, icon: 'none' });
+      uploadStatus.message = `请求失败: ${response.status}`;
+      uploadStatus.type = 'error';
+      setTimeout(() => {
+        uploadStatus.message = '';
+      }, 3000);
       return;
     }
     
@@ -973,11 +997,19 @@ const uploadFile = async (file) => {
     
     if (result.code === 200) {
       console.log('上传成功！');
-      uni.showToast({ title: '上传成功', icon: 'success' });
+      uploadStatus.message = '上传成功';
+      uploadStatus.type = 'success';
+      setTimeout(() => {
+        uploadStatus.message = '';
+      }, 3000);
       fetchKnowledgeBase();
     } else {
       console.error('上传失败:', result.message);
-      uni.showToast({ title: result.message || '上传失败', icon: 'none' });
+      uploadStatus.message = result.message || '上传失败';
+      uploadStatus.type = 'error';
+      setTimeout(() => {
+        uploadStatus.message = '';
+      }, 3000);
     }
   } catch (error) {
     console.error('文件上传异常:', error);
@@ -990,12 +1022,16 @@ const uploadFile = async (file) => {
     // 判断错误类型
     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
       console.error('网络请求失败，可能是后端服务未启动或跨域问题');
-      uni.showToast({ title: '网络连接失败，请检查后端服务', icon: 'none' });
+      uploadStatus.message = '网络连接失败，请检查后端服务';
     } else if (error.name === 'AbortError') {
-      uni.showToast({ title: '请求已取消', icon: 'none' });
+      uploadStatus.message = '请求已取消';
     } else {
-      uni.showToast({ title: `上传异常: ${error.message}`, icon: 'none' });
+      uploadStatus.message = `上传异常: ${error.message}`;
     }
+    uploadStatus.type = 'error';
+    setTimeout(() => {
+      uploadStatus.message = '';
+    }, 3000);
   }
 };
 
@@ -1031,38 +1067,6 @@ const toolset = [
   { type: '判断题', color: 'bg-rose-500' },
   { type: '填空题', color: 'bg-cyan-500' },
   { type: '简答题', color: 'bg-indigo-500' }
-];
-
-const questionScores = [
-  { label: 'Q1', score: 85, color: '#6366f1' },
-  { label: 'Q2', score: 72, color: '#818cf8' },
-  { label: 'Q3', score: 92, color: '#6366f1' },
-  { label: 'Q4', score: 65, color: '#a5b4fc' },
-  { label: 'Q5', score: 48, color: '#c7d2fe' },
-  { label: 'Q6', score: 88, color: '#6366f1' },
-  { label: 'Q7', score: 55, color: '#d4d4d8' },
-  { label: 'Q8', score: 78, color: '#6366f1' },
-  { label: 'Q9', score: 95, color: '#818cf8' },
-  { label: 'Q10', score: 62, color: '#a5b4fc' }
-];
-
-const assignmentStats = {
-  submittedCount: 57,
-  avgScore: 6.3,
-  totalScore: 10,
-  excellentRate: '22%',
-  hardestQuestion: 'Q7'
-};
-
-const submittedStudents = [
-  { name: '张敬有', className: '大数据2403', id: '2024001', submitTime: '今天 14:22', status: '已自动阅卷', score: '8.0' },
-  { name: '符式乾', className: '大数据2404', id: '2024042', submitTime: '今天 12:05', status: '已自动阅卷', score: '8.0' }
-];
-
-const unsubmittedStudents = [
-  { name: '李明', className: '大数据2403', id: '2024002' },
-  { name: '王华', className: '大数据2403', id: '2024003' },
-  { name: '刘洋', className: '大数据2404', id: '2024043' }
 ];
 
 let draggingItem = null;
@@ -1112,6 +1116,7 @@ onUnmounted(() => {
     clearTimeout(deadlineTimerRef.value);
     deadlineTimerRef.value = null;
   }
+  stopStatsPolling();
 });
 
 const onDragStart = (e, item) => {
@@ -1729,18 +1734,66 @@ const confirmShare = async () => {
   }
 };
 
-const openAssignmentDetail = (title, deadline, status, participants, shareCode) => {
-  console.log('打开作业详情:', { title, deadline, status, shareCode });
+const openAssignmentDetail = (title, deadline, status, participants, shareCode, deadlineTs, assignmentId) => {
+  console.log('打开作业详情:', { title, deadline, status, shareCode, deadlineTs, assignmentId });
   selectedAssignment.title = title;
   selectedAssignment.deadline = deadline;
+  selectedAssignment.deadline_ts = deadlineTs || 0;
   selectedAssignment.status = status;
   selectedAssignment.participants = participants || [];
   selectedAssignment.share_code = shareCode || '';
   currentView.value = 'detail';
-  console.log('currentView 已设置为 detail');
+
+  detailAssignmentId.value = assignmentId || null;
+  fetchAssignmentStats();
+  if (status === '进行中') startStatsPolling();
 };
 
+async function fetchAssignmentStats() {
+  const id = detailAssignmentId.value;
+  if (!id) return;
+  try {
+    const res = await fetch(CONFIG.baseUrl + `/api/assignments/${id}/stats`);
+    const data = await res.json();
+    if (data.success && data.data) {
+      const d = data.data;
+      assignmentStats.submittedCount = d.submitted_count || 0;
+      assignmentStats.totalStudents = d.total_students || 0;
+      assignmentStats.avgScore = d.avg_score || 0;
+      assignmentStats.totalScore = d.total_score || 0;
+      assignmentStats.excellentRate = d.excellent_rate || '0%';
+      assignmentStats.hardestQuestion = d.hardest_question?.label || '—';
+      assignmentStats.hardestErrorRate = (d.hardest_question?.error_rate * 100).toFixed(0) + '%' || '0%';
+      questionScores.value = (d.question_scores || []).map(q => ({
+        label: q.label, score: Math.round((1 - q.error_rate) * 100), color: q.color
+      }));
+      submittedStudents.value = (d.submitted_students || []).map(s => ({
+        name: s.name, className: s.className || '', id: s.id,
+        submitTime: s.submit_time || '', score: s.score || '0'
+      }));
+      unsubmittedStudents.value = (d.unsubmitted_students || []).map(s => ({
+        name: s.name, className: s.className || '', id: s.id
+      }));
+    }
+  } catch (e) {
+    console.error('获取统计数据失败:', e);
+  }
+}
+
+function startStatsPolling() {
+  stopStatsPolling();
+  statsTimer = setTimeout(() => {
+    fetchAssignmentStats();
+    startStatsPolling();
+  }, 10000);
+}
+
+function stopStatsPolling() {
+  if (statsTimer) { clearTimeout(statsTimer); statsTimer = null; }
+}
+
 const closeDetailView = () => {
+  stopStatsPolling();
   currentView.value = 'list';
 };
 
@@ -2740,6 +2793,30 @@ const confirmResourceAssociation = () => {
   margin-bottom: 12px;
   display: block;
   font-weight: 500;
+}
+
+.upload-status {
+  font-size: 14px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.upload-status.success {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.upload-status.error {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.upload-status.loading {
+  background: #eff6ff;
+  color: #3b82f6;
 }
 
 .file-item {

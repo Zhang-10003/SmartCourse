@@ -72,15 +72,20 @@
       <view class="metric-card">
         <text class="metric-label">已提交人数</text>
         <view class="metric-value-row">
-          <text class="metric-number">{{ stats.submittedCount }}</text>
+          <view class="score-display">
+            <text class="metric-number">{{ stats.submittedCount || 0 }}</text>
+            <text class="metric-divider"> / </text>
+            <text class="metric-number small">{{ stats.totalStudents || 0 }}</text>
+          </view>
         </view>
       </view>
       <view class="metric-card">
         <text class="metric-label">平均得分</text>
         <view class="metric-value-row">
-          <text class="metric-number purple">{{ stats.avgScore }} / {{ stats.totalScore }}</text>
-          <view class="mini-progress-bar">
-            <view class="mini-progress-fill"></view>
+          <view class="score-display">
+            <text class="metric-number purple">{{ stats.avgScore || 0 }}</text>
+            <text class="metric-divider"> / </text>
+            <text class="metric-number small purple">{{ stats.totalScore || 0 }}</text>
           </view>
         </view>
       </view>
@@ -94,7 +99,7 @@
         <text class="metric-label">高频错题</text>
         <view class="metric-value-row">
           <text class="metric-number red">{{ stats.hardestQuestion }}</text>
-          <text class="metric-badge red-text">错误率 42%</text>
+          <text class="metric-badge red-text">错误率 {{ stats.hardestErrorRate }}</text>
         </view>
       </view>
     </view>
@@ -271,6 +276,7 @@ export default {
       default: () => ({
         title: '',
         deadline: '',
+        deadline_ts: 0,
         status: '',
         participants: [],
         share_code: ''
@@ -279,11 +285,13 @@ export default {
     stats: {
       type: Object,
       default: () => ({
-        submittedCount: 57,
-        avgScore: 6.3,
-        totalScore: 10,
-        excellentRate: '22%',
-        hardestQuestion: 'Q7'
+        submittedCount: 0,
+        totalStudents: 0,
+        avgScore: 0,
+        totalScore: 0,
+        excellentRate: '0%',
+        hardestQuestion: '—',
+        hardestErrorRate: '0%'
       })
     },
     questionScores: {
@@ -307,7 +315,7 @@ export default {
       isDragging: false,
       startX: 0,
       scrollLeftStart: 0,
-      remainingSeconds: 2 * 24 * 60 * 60 + 12 * 60 * 60, // 2天12小时
+      remainingSeconds: 0,
       timer: null
     };
   },
@@ -403,6 +411,16 @@ export default {
   mounted() {
     document.addEventListener('click', this.closePopover);
     this.startCountdown();
+  },
+  watch: {
+    'assignment.deadline_ts': {
+      immediate: true,
+      handler(ts) {
+        if (ts) {
+          this.remainingSeconds = Math.max(0, Math.floor(ts - Date.now() / 1000));
+        }
+      }
+    }
   },
   beforeDestroy() {
     document.removeEventListener('click', this.closePopover);
@@ -690,7 +708,18 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
+  flex-wrap: wrap;
 }
+
+.metric-value-row.left {
+  justify-content: flex-start;
+}
+
+.score-display {
+  display: flex;
+  align-items: flex-end;
+}
+
 
 .metric-number {
   font-size: 36px;
@@ -709,6 +738,19 @@ export default {
 
 .metric-number.red {
   color: #f87171;
+}
+
+.metric-number.small {
+  font-size: 24px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.metric-divider {
+  font-size: 24px;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin: 0 4px;
 }
 
 .metric-badge {

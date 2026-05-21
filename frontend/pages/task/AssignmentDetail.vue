@@ -21,6 +21,8 @@
       </view>
     </view>
 
+
+
     <swiper 
       class="question-swiper" 
       :current="currentIndex" 
@@ -89,12 +91,6 @@
             :data="{ index: index + 1, question: q }"
             :disabled="taskInfo.status === 'submitted' || taskInfo.status === 'expired'"
           />
-          
-          <AIFeedback 
-            v-if="(taskInfo.status === 'expired') && questionFeedbacks[index]" 
-            :res-json="questionFeedbacks[index]" 
-            style="display:block;"
-          />
         </scroll-view>
       </swiper-item>
     </swiper>
@@ -122,12 +118,11 @@ import QuestionFillBlank from '../../components/QuestionFillBlank.vue';
 import QuestionShortAnswer from '../../components/QuestionShortAnswer.vue';
 import QuestionMatching from '../../components/QuestionMatching.vue';
 import QuestionCodeFill from '../../components/QuestionCodeFill.vue';
-import AIFeedback from '../../components/AIFeedback.vue';
 
 const currentIndex = ref(0);
 const taskInfo = ref({ title: '', status: '' });
 const questions = ref([]);
-const questionFeedbacks = ref([]);
+const submissionData = ref(null);
 const loading = ref(true);
 const countdownText = ref('');
 
@@ -184,6 +179,7 @@ async function fetchQuestions(assignmentId) {
       questions.value = (qRes.data || []).map(mapBackendQuestion);
 
       if (subRes && subRes.success) {
+        submissionData.value = subRes.data;
         const answerMap = {};
         for (const a of subRes.data.answers) {
           answerMap[a.question_id] = a;
@@ -380,6 +376,63 @@ const goBack = () => uni.navigateBack();
   padding: 0rpx 30rpx 30rpx;
   box-sizing: border-box; 
   background-color: #ffffff;
+}
+
+/* 作业得分和反馈区域 */
+.summary-box {
+  margin: 20rpx 30rpx;
+  padding: 30rpx;
+  background: linear-gradient(135deg, #fff7f0 0%, #fef7ff 100%);
+  border-radius: 20rpx;
+  border: 2rpx solid #f0e6ff;
+}
+
+.summary-title {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 16rpx;
+}
+
+.score-display {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 24rpx;
+}
+
+.score-value {
+  font-size: 72rpx;
+  font-weight: 800;
+  color: #ff6b6b;
+}
+
+.score-slash {
+  font-size: 36rpx;
+  color: #999;
+  margin: 0 8rpx;
+}
+
+.score-max {
+  font-size: 36rpx;
+  color: #999;
+}
+
+.feedback-summary {
+  border-top: 1rpx dashed #e8d5ff;
+  padding-top: 24rpx;
+}
+
+.feedback-label {
+  font-size: 26rpx;
+  color: #ff6b6b;
+  font-weight: 600;
+  margin-bottom: 12rpx;
+}
+
+.feedback-text {
+  font-size: 26rpx;
+  color: #333;
+  line-height: 1.7;
+  white-space: pre-wrap;
 }
 
 .footer {
