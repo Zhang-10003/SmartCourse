@@ -52,21 +52,20 @@ const feedbackData = computed(() => {
 /* 核心组件样式 */
 .ai-feedback-component {
   border: none;
-  padding: 24rpx 32rpx;
-  margin: 20rpx 20rpx;
+  padding: 30rpx;
+  margin: 30rpx 0;
   font-size: 28rpx;
   line-height: 1.7;
   text-align: left;
-  background: linear-gradient(135deg, #fff7f0 0%, #fef7ff 100%);
+  background: #fff5f5;
   border-radius: 16rpx;
-  border: 1rpx solid #f0e6ff;
 }
 
 /* 提示词颜色（红） */
 .ai-label {
   color: #ff6b6b;
   font-weight: 600;
-  font-size: 26rpx;
+  font-size: 28rpx;
 }
 
 /* 冒号后面的内容颜色（完全复刻原图的黑） */
@@ -79,8 +78,6 @@ const feedbackData = computed(() => {
 
 .ai-score-row {
   margin-bottom: 16rpx;
-  padding-bottom: 12rpx;
-  border-bottom: 1rpx dashed #e8d5ff;
 }
 
 .ai-text-row {
@@ -90,6 +87,6 @@ const feedbackData = computed(() => {
 .ai-score-row .ai-value {
   color: #ff6b6b;
   font-weight: 700;
-  font-size: 32rpx;
+  font-size: 36rpx;
 }
 </style>

@@ -91,6 +91,12 @@
             :data="{ index: index + 1, question: q }"
             :disabled="taskInfo.status === 'submitted' || taskInfo.status === 'expired'"
           />
+          
+          <AIFeedback 
+            v-if="(taskInfo.status === 'submitted' || taskInfo.status === 'expired') && questionFeedbacks[index]" 
+            :res-json="questionFeedbacks[index]" 
+            style="display:block;"
+          />
         </scroll-view>
       </swiper-item>
     </swiper>
@@ -118,10 +124,12 @@ import QuestionFillBlank from '../../components/QuestionFillBlank.vue';
 import QuestionShortAnswer from '../../components/QuestionShortAnswer.vue';
 import QuestionMatching from '../../components/QuestionMatching.vue';
 import QuestionCodeFill from '../../components/QuestionCodeFill.vue';
+import AIFeedback from '../../components/AIFeedback.vue';
 
 const currentIndex = ref(0);
 const taskInfo = ref({ title: '', status: '' });
 const questions = ref([]);
+const questionFeedbacks = ref([]);
 const submissionData = ref(null);
 const loading = ref(true);
 const countdownText = ref('');
@@ -193,6 +201,17 @@ async function fetchQuestions(assignmentId) {
             }
           }
         }
+        // 把反馈数据转换成 AIFeedback 组件需要的格式
+        questionFeedbacks.value = questions.value.map(q => {
+          const a = answerMap[q.question_id];
+          if (a) {
+            return {
+              score: `${a.score}/${q.score}`,
+              feedback: a.feedback || ''
+            };
+          }
+          return null;
+        });
       }
     } else {
       uni.showToast({ title: qRes?.message || '获取题目失败', icon: 'none' });
