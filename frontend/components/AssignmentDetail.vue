@@ -131,16 +131,27 @@
             <text>20</text>
             <text>0</text>
           </view>
-          <view class="bar-columns">
-            <view class="bar-column" v-for="(item, index) in questionScores" :key="index">
-              <view 
-                class="bar-active-fill"
-                :style="{ 
-                  height: item.score * 1.8 + 'px', 
-                  backgroundColor: item.color
-                }"
-              ></view>
-              <text class="bar-label">{{ item.label }}</text>
+          <view 
+            class="bar-scroll-area"
+            @mousedown="startDrag"
+            @mousemove="onDrag"
+            @mouseup="stopDrag"
+            @mouseleave="stopDrag"
+          >
+            <view 
+              class="bar-columns" 
+              :class="{ 'bar-columns-evenly': questionScores.length <= 8, 'bar-columns-scrollable': questionScores.length > 8 }"
+            >
+              <view class="bar-column" v-for="(item, index) in questionScores" :key="index">
+                <view 
+                  class="bar-active-fill"
+                  :style="{ 
+                    height: item.score * 1.8 + 'px', 
+                    backgroundColor: item.color
+                  }"
+                ></view>
+                <text class="bar-label">{{ item.label }}</text>
+              </view>
             </view>
           </view>
         </view>
@@ -285,7 +296,10 @@ export default {
     return {
       currentSubmitTab: 'submitted',
       showSharePopover: false,
-      copySuccess: false
+      copySuccess: false,
+      isDragging: false,
+      startX: 0,
+      scrollLeftStart: 0
     };
   },
   computed: {
@@ -322,6 +336,25 @@ export default {
       if (this.showSharePopover && !e.target.closest('.share-wrapper')) {
         this.showSharePopover = false;
       }
+    },
+    startDrag(e) {
+      this.isDragging = true;
+      this.startX = e.pageX;
+      const scrollArea = this.$el.querySelector('.bar-scroll-area');
+      if (scrollArea) {
+        this.scrollLeftStart = scrollArea.scrollLeft;
+      }
+    },
+    onDrag(e) {
+      if (!this.isDragging) return;
+      const scrollArea = this.$el.querySelector('.bar-scroll-area');
+      if (scrollArea) {
+        const walk = e.pageX - this.startX;
+        scrollArea.scrollLeft = this.scrollLeftStart - walk;
+      }
+    },
+    stopDrag() {
+      this.isDragging = false;
     }
   },
   mounted() {
@@ -731,63 +764,60 @@ export default {
 
 .bar-chart-wrapper {
   display: flex;
-  justify-content: flex-start;
-  align-items: flex-end;
   height: 200px;
-  padding: 0 20px;
   border-bottom: 1px solid #e2e8f0;
   position: relative;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-
-.bar-chart-wrapper::-webkit-scrollbar {
-  height: 6px;
-}
-
-.bar-chart-wrapper::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 3px;
-}
-
-.bar-chart-wrapper::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
-}
-
-.bar-chart-wrapper::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  overflow: hidden;
 }
 
 .chart-y-axis {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  top: 0;
+  flex-shrink: 0;
+  width: 40px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  pointer-events: none;
+  padding-right: 8px;
 }
 
 .chart-y-axis text {
-  border-bottom: 1px dashed rgba(226, 231, 240, 0.5);
-  height: 0;
-  width: 100%;
   font-size: 10px;
-  color: #cbd5e1;
-  text-align: left;
-  padding-bottom: 12px;
+  color: #94a3b8;
+  text-align: right;
+}
+
+.bar-scroll-area {
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: grab;
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+.bar-scroll-area:active {
+  cursor: grabbing;
+}
+
+.bar-scroll-area::-webkit-scrollbar {
+  display: none;
 }
 
 .bar-columns {
   display: flex;
   align-items: flex-end;
+  height: 100%;
+  padding: 0 20px;
+}
+
+.bar-columns-evenly {
   justify-content: space-around;
   width: 100%;
-  flex-shrink: 0;
-  padding: 0 20px;
+}
+
+.bar-columns-scrollable {
+  gap: 24px;
+  width: auto;
+  min-width: max-content;
 }
 
 .bar-column {
@@ -795,7 +825,7 @@ export default {
   flex-direction: column;
   align-items: center;
   z-index: 2;
-  min-width: 48px;
+  min-width: 60px;
   flex-shrink: 0;
 }
 

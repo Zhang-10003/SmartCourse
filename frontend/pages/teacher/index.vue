@@ -987,7 +987,10 @@ const questionScores = [
   { label: 'Q4', score: 65, color: '#a5b4fc' },
   { label: 'Q5', score: 48, color: '#c7d2fe' },
   { label: 'Q6', score: 88, color: '#6366f1' },
-  { label: 'Q7', score: 55, color: '#d4d4d8' }
+  { label: 'Q7', score: 55, color: '#d4d4d8' },
+  { label: 'Q8', score: 78, color: '#6366f1' },
+  { label: 'Q9', score: 95, color: '#818cf8' },
+  { label: 'Q10', score: 62, color: '#a5b4fc' }
 ];
 
 const assignmentStats = {
