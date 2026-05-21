@@ -273,8 +273,10 @@
                         :deadline="assignment.deadline" 
                         :status="assignment.status"
                         :participants="fixedParticipants"
+                        :assignmentId="assignment.assignment_id"
                         @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code)"
                         @report-click="handleReportClick(assignment)"
+                        @close-click="handleCloseClick(assignment.assignment_id)"
                       />
                   </view>
                   <view v-else class="text-center py-10 text-slate-400">
@@ -294,8 +296,10 @@
                         :title="assignment.title" 
                         :deadline="assignment.deadline" 
                         :status="assignment.status"
+                        :assignmentId="assignment.assignment_id"
                         @detail-click="openAssignmentDetail(assignment.title, assignment.deadline, assignment.status, [], assignment.share_code)"
                         @report-click="handleReportClick(assignment)"
+                        @close-click="handleCloseClick(assignment.assignment_id)"
                       />
                   </view>
                   <view v-else class="text-center py-10 text-slate-400">
@@ -378,7 +382,44 @@
       </view>
     </view>
 
-
+    <!-- 学情分析报告弹窗 -->
+    <view v-if="reportModal.show" class="fixed inset-0 z-30 flex items-center justify-center p-4">
+      <view @click="closeReportModal" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></view>
+      <view class="bg-white rounded-2xl shadow-2xl relative" style="width: 520px; max-height: 80vh;">
+        <view class="flex items-center justify-between p-6 border-b border-slate-100">
+          <text class="text-lg font-bold text-slate-800">📊 学情分析</text>
+          <text class="text-slate-400 cursor-pointer text-xl leading-none" @click="closeReportModal">&times;</text>
+        </view>
+        <view class="p-6 overflow-y-auto" style="max-height: calc(80vh - 80px);">
+          <view v-if="reportModal.loading" class="text-center py-10 text-slate-400">加载中...</view>
+          <view v-else>
+            <view class="mb-4 text-sm text-slate-500">
+              作业：<text class="font-medium text-slate-700">{{ reportModal.title }}</text>
+            </view>
+            <view class="mb-6 text-sm text-slate-500">
+              已提交 <text class="font-bold text-indigo-600">{{ reportModal.total_submitted }}</text>
+              / <text class="font-bold text-slate-700">{{ reportModal.total_students }}</text> 人
+            </view>
+            <view v-if="reportModal.knowledge_points.length === 0" class="text-center py-10 text-slate-400">暂无报告数据</view>
+            <view v-for="kp in reportModal.knowledge_points" :key="kp.name" class="mb-5 pb-4 border-b border-slate-50 last:border-b-0 last:mb-0 last:pb-0">
+              <view class="flex items-center justify-between mb-2">
+                <text class="font-semibold text-slate-800">{{ kp.name }}</text>
+                <text :class="kp.error_rate > 0.5 ? 'text-red-500' : 'text-emerald-500'" class="font-bold text-sm">
+                  {{ (kp.error_rate * 100).toFixed(0) }}%
+                </text>
+              </view>
+              <view class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
+                <view class="h-full rounded-full" :class="kp.error_rate > 0.5 ? 'bg-red-400' : 'bg-emerald-400'" :style="{ width: (kp.error_rate * 100) + '%' }"></view>
+              </view>
+              <view v-for="mt in kp.mistake_types" :key="mt.description" class="flex justify-between items-center py-1 text-sm">
+                <text class="text-slate-600">• {{ mt.description }}</text>
+                <text class="text-slate-400 text-xs">{{ mt.count }}人 ({{ (mt.percent * 100).toFixed(0) }}%)</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
 
     <view v-if="ragModal.show" class="fixed inset-0 z-30 flex items-center justify-center p-4">
       <view @click="closeRAGModal" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></view>
@@ -757,6 +798,17 @@ const loadingState = reactive({
   show: false
 });
 
+const reportModal = reactive({
+  show: false,
+  loading: false,
+  title: '',
+  total_submitted: 0,
+  total_students: 0,
+  knowledge_points: []
+});
+
+const deadlineTimerRef = ref(null);
+
 // 作业列表数据
 const assignmentList = reactive({
   today: [],
@@ -797,6 +849,7 @@ const loadTeacherAssignments = async () => {
       assignmentList.recent = result.data.recent || [];
       console.log('作业列表已更新 - today:', assignmentList.today.length, '个作业');
     }
+    scheduleDeadlineCheck();
   } catch (error) {
     console.error('加载作业列表失败:', error);
   }
@@ -1055,6 +1108,10 @@ onUnmounted(() => {
   window.removeEventListener('mousemove', updateMousePos, true);
   window.removeEventListener('dragover', updateMousePos, true);
   window.removeEventListener('mouseup', stopInternalDrag);
+  if (deadlineTimerRef.value) {
+    clearTimeout(deadlineTimerRef.value);
+    deadlineTimerRef.value = null;
+  }
 });
 
 const onDragStart = (e, item) => {
@@ -1687,10 +1744,79 @@ const closeDetailView = () => {
   currentView.value = 'list';
 };
 
-const handleReportClick = (assignment) => {
-  console.log('点击查看报告:', assignment);
-  showToast('报告功能开发中', 'info');
+const handleReportClick = async (assignment) => {
+  reportModal.show = true;
+  reportModal.loading = true;
+  reportModal.title = assignment.title;
+  try {
+    const res = await fetch(CONFIG.baseUrl + `/api/assignments/${assignment.assignment_id}/report`);
+    const data = await res.json();
+    if (data.success && data.data && data.data.report_data) {
+      const rd = data.data.report_data;
+      reportModal.total_submitted = rd.total_submitted || 0;
+      reportModal.total_students = rd.total_students || 0;
+      reportModal.knowledge_points = rd.knowledge_points || [];
+    } else {
+      reportModal.knowledge_points = [];
+      uni.showToast({ title: data.message || '报告未生成', icon: 'none' });
+    }
+  } catch (e) {
+    console.error('获取报告失败:', e);
+    reportModal.knowledge_points = [];
+    uni.showToast({ title: '获取报告失败', icon: 'none' });
+  } finally {
+    reportModal.loading = false;
+  }
 };
+
+const closeReportModal = () => {
+  reportModal.show = false;
+};
+
+const handleCloseClick = async (assignmentId) => {
+  try {
+    await fetch(CONFIG.baseUrl + `/api/assignments/${assignmentId}/close`, { method: 'POST' });
+    showToast('作业已截止，报告生成中', 'success');
+    await loadTeacherAssignments();
+    scheduleDeadlineCheck();
+  } catch (e) {
+    console.error('截止作业失败:', e);
+    showToast('截止失败', 'error');
+  }
+};
+
+function scheduleDeadlineCheck() {
+  if (deadlineTimerRef.value) {
+    clearTimeout(deadlineTimerRef.value);
+    deadlineTimerRef.value = null;
+  }
+  const now = Date.now() / 1000;
+  const allAssignments = [...assignmentList.today, ...assignmentList.recent];
+  const processing = allAssignments.filter(a => a.status === '进行中' && a.deadline_ts);
+  if (processing.length === 0) return;
+  const nearest = Math.min(...processing.map(a => a.deadline_ts));
+  const diffMs = (nearest - now) * 1000 + 500;
+  if (diffMs <= 0) {
+    autoCloseExpired(processing.filter(a => a.deadline_ts <= now));
+    return;
+  }
+  deadlineTimerRef.value = setTimeout(() => {
+    autoCloseExpired(processing.filter(a => a.deadline_ts <= Date.now() / 1000));
+  }, diffMs);
+}
+
+async function autoCloseExpired(list) {
+  if (!list || list.length === 0) return;
+  for (const a of list) {
+    try {
+      await fetch(CONFIG.baseUrl + `/api/assignments/${a.assignment_id}/close`, { method: 'POST' });
+    } catch (e) {
+      console.error('自动截止失败:', a.assignment_id, e);
+    }
+  }
+  await loadTeacherAssignments();
+  scheduleDeadlineCheck();
+}
 
 const handleUploadResource = () => {
   showToast('功能开发中', 'info');

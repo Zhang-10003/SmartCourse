@@ -52,6 +52,13 @@
         <p class="detail-subtitle">数据统计与实时排行榜分析</p>
       </view>
       <view class="header-actions">
+        <view class="time-display">
+          <text class="time-label-text">剩余时间</text>
+          <text class="time-countdown">{{ remainingTimeText }}</text>
+        </view>
+        <view class="btn-deadline">
+          <text>立即截止</text>
+        </view>
         <view class="btn-secondary">
           <text>导出报表</text>
         </view>
@@ -299,17 +306,40 @@ export default {
       copySuccess: false,
       isDragging: false,
       startX: 0,
-      scrollLeftStart: 0
+      scrollLeftStart: 0,
+      remainingSeconds: 2 * 24 * 60 * 60 + 12 * 60 * 60, // 2天12小时
+      timer: null
     };
   },
   computed: {
     shareLink() {
       if (this.assignment.share_code) {
         // 使用 HTTP 格式，浏览器可以访问，页面中会尝试唤醒 app
-        return `http://192.168.1.39:8000/share/${this.assignment.share_code}`;
+        return 'http://192.168.1.39:8000/share/' + this.assignment.share_code;
       }
       // 备用格式
       return 'http://192.168.1.39:8000/share/';
+    },
+    remainingTimeText() {
+      let seconds = this.remainingSeconds;
+      if (seconds <= 0) return '已截止';
+      
+      const days = Math.floor(seconds / (24 * 60 * 60));
+      seconds %= (24 * 60 * 60);
+      
+      const hours = Math.floor(seconds / (60 * 60));
+      seconds %= (60 * 60);
+      
+      const minutes = Math.floor(seconds / 60);
+      seconds %= 60;
+      
+      const pad = (num) => num.toString().padStart(2, '0');
+      
+      if (days > 0) {
+        return `${days}:${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+      } else {
+        return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
+      }
     }
   },
   methods: {
@@ -355,13 +385,28 @@ export default {
     },
     stopDrag() {
       this.isDragging = false;
+    },
+    startCountdown() {
+      this.timer = setInterval(() => {
+        if (this.remainingSeconds > 0) {
+          this.remainingSeconds--;
+        }
+      }, 1000);
+    },
+    stopCountdown() {
+      if (this.timer) {
+        clearInterval(this.timer);
+        this.timer = null;
+      }
     }
   },
   mounted() {
     document.addEventListener('click', this.closePopover);
+    this.startCountdown();
   },
   beforeDestroy() {
     document.removeEventListener('click', this.closePopover);
+    this.stopCountdown();
   }
 };
 </script>
@@ -545,6 +590,48 @@ export default {
 .header-actions {
   display: flex;
   gap: 12px;
+  align-items: center;
+}
+
+.time-display {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  padding: 0;
+  background: transparent;
+  border: none;
+  margin-right: 32px;
+}
+
+.time-label-text {
+  font-size: 14px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-bottom: 0;
+  margin-right: 12px;
+}
+
+.time-countdown {
+  font-size: 28px;
+  font-weight: 800;
+  color: #4f46e5;
+  letter-spacing: 2px;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+}
+
+.btn-deadline {
+  background: #fff;
+  border: 1px solid #f87171;
+  color: #f87171;
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.btn-deadline:hover {
+  background: #fef2f2;
 }
 
 .btn-secondary {
