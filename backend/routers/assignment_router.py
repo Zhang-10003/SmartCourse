@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from models import Assignment, Question, AssignmentShare, User, StudentAssignment, Submission, StudentAnswer
+from sqlalchemy import select, func
+from models import Assignment, Question, AssignmentShare, User, Student, StudentAssignment, Submission, StudentAnswer, AssignmentReport
 from dependencies import get_session
 from schemas.assignment import (
     AssignmentCreate, 
@@ -19,6 +19,7 @@ import json
 import asyncio
 from typing import Dict, Any
 from services.ai_grader import grade_submission
+from services.report_generator import generate_report
 
 router = APIRouter(prefix="/api", tags=["assignments"])
 
@@ -443,6 +444,7 @@ async def get_teacher_assignments(
                 "assignment_id": assignment.assignment_id,
                 "title": assignment.assignment_title,
                 "deadline": deadline.strftime("截止: %m-%d %H:%M") if hasattr(deadline, 'strftime') else "截止: " + str(assignment.deadline),
+                "deadline_ts": int(deadline.timestamp()) if hasattr(deadline, 'timestamp') else 0,
                 "status": status,
                 "share_code": share_code,
                 "created_at": assignment.created_at.isoformat() if hasattr(assignment.created_at, 'isoformat') else str(assignment.created_at)
@@ -672,12 +674,14 @@ async def get_submission(
                 "submission_id": submission.submission_id,
                 "submit_time": submission.submit_time.isoformat() if hasattr(submission.submit_time, 'isoformat') else str(submission.submit_time),
                 "total_score": float(submission.total_score) if submission.total_score else 0,
+                "feedback": submission.feedback or "",
                 "answers": [
                     {
                         "question_id": a.question_id,
                         "answer": a.answer,
                         "is_correct": a.is_correct,
-                        "score": float(a.score) if a.score else 0
+                        "score": float(a.score) if a.score else 0,
+                        "feedback": a.feedback or ""
                     }
                     for a in answers
                 ]
@@ -747,3 +751,211 @@ def grade_answer(q_type, user_ans, correct_ans, full_score):
         return correct_count == total_fields, partial
 
     return False, 0
+
+
+@router.post("/assignments/{assignment_id}/close", response_model=dict)
+async def close_assignment(
+    assignment_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    """手动截止作业 + 异步生成报告"""
+    try:
+        result = await session.execute(
+            select(Assignment).where(Assignment.assignment_id == assignment_id)
+        )
+        assignment = result.scalar_one_or_none()
+        if not assignment:
+            return {"success": False, "message": "作业不存在"}
+
+        assignment.status = "closed"
+        await session.commit()
+
+        asyncio.create_task(generate_report(assignment_id))
+
+        print(f"作业 {assignment_id} 已截止，异步生成报告中...")
+        return {"success": True, "message": "作业已截止，报告生成中"}
+
+    except Exception as e:
+        await session.rollback()
+        print(f"截止作业失败: {e}")
+        return {"success": False, "message": f"截止失败: {str(e)}"}
+
+
+@router.get("/assignments/{assignment_id}/report", response_model=dict)
+async def get_assignment_report(
+    assignment_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    """获取作业报告"""
+    try:
+        result = await session.execute(
+            select(AssignmentReport).where(AssignmentReport.assignment_id == assignment_id)
+        )
+        report = result.scalar_one_or_none()
+        if not report:
+            return {"success": False, "message": "报告尚未生成"}
+
+        return {
+            "success": True,
+            "data": {
+                "report_id": report.report_id,
+                "assignment_id": report.assignment_id,
+                "report_data": json.loads(report.report_data),
+                "created_at": report.created_at.isoformat() if hasattr(report.created_at, 'isoformat') else str(report.created_at)
+            }
+        }
+    except Exception as e:
+        print(f"获取报告失败: {e}")
+        return {"success": False, "message": f"获取报告失败: {str(e)}"}
+
+
+@router.get("/assignments/{assignment_id}/stats", response_model=dict)
+async def get_assignment_stats(
+    assignment_id: int,
+    session: AsyncSession = Depends(get_session)
+):
+    """获取作业实时统计数据"""
+    try:
+        # 1. 总人数（student_assignments + submissions 并集）
+        sa_q = select(StudentAssignment.student_id).where(StudentAssignment.assignment_id == assignment_id)
+        sub_q = select(Submission.student_id).where(Submission.assignment_id == assignment_id)
+        union_q = sa_q.union(sub_q).subquery()
+        total_result = await session.execute(select(func.count()).select_from(union_q))
+        total_students = total_result.scalar() or 0
+
+        # 2. 已提交人数
+        sub_result = await session.execute(
+            select(Submission).where(Submission.assignment_id == assignment_id)
+        )
+        submissions = sub_result.scalars().all()
+        submitted_count = len(submissions)
+
+        # 3. 总分（该作业所有题目的 score 之和）
+        score_result = await session.execute(
+            select(func.coalesce(func.sum(Question.score), 0))
+            .where(Question.assignment_id == assignment_id)
+        )
+        total_score = float(score_result.scalar() or 0)
+
+        # 4. 每题信息（用于柱状图）
+        q_result = await session.execute(
+            select(Question).where(Question.assignment_id == assignment_id).order_by(Question.sort_order)
+        )
+        questions = q_result.scalars().all()
+
+        submitted_ids = [s.submission_id for s in submissions]
+        sub_student_ids = [s.student_id for s in submissions]
+
+        # 5. 查询所有 student_answers
+        all_answers = []
+        if submitted_ids:
+            a_result = await session.execute(
+                select(StudentAnswer).where(StudentAnswer.submission_id.in_(submitted_ids))
+            )
+            all_answers = a_result.scalars().all()
+
+        # 6. 每道题错误率
+        question_scores = []
+        hardest_q = {"label": "", "error_rate": 0}
+        colors_pool = ["#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe", "#6366f1", "#818cf8", "#a5b4fc", "#c7d2fe"]
+
+        for i, q in enumerate(questions):
+            q_answers = [a for a in all_answers if a.question_id == q.question_id]
+            wrong_count = sum(1 for a in q_answers if a.is_correct is False)
+            error_rate = wrong_count / submitted_count if submitted_count else 0
+            question_scores.append({
+                "label": f"Q{q.sort_order + 1}",
+                "error_rate": round(error_rate, 2),
+                "color": colors_pool[i % len(colors_pool)]
+            })
+            if error_rate > hardest_q["error_rate"]:
+                hardest_q = {"label": f"Q{q.sort_order + 1}", "error_rate": round(error_rate, 2)}
+
+        # 7. 成绩分布 + 平均分
+        avg_score = 0
+        excellent = good = pass_ = fail = 0
+        for s in submissions:
+            s_score = float(s.total_score) if s.total_score else 0
+            pct = s_score / total_score if total_score else 0
+            avg_score += s_score
+            if pct >= 0.8: excellent += 1
+            elif pct >= 0.7: good += 1
+            elif pct >= 0.6: pass_ += 1
+            else: fail += 1
+
+        if submitted_count:
+            avg_score = round(avg_score / submitted_count, 1)
+
+        excellent_rate = f"{round(excellent / submitted_count * 100) if submitted_count else 0}%"
+
+        # 8. 已提交学生列表
+        submitted_students = []
+        if sub_student_ids:
+            stu_result = await session.execute(
+                select(Student).where(Student.user_id.in_(sub_student_ids))
+            )
+            student_map = {s.user_id: s for s in stu_result.scalars().all()}
+
+            for s in submissions:
+                stu = student_map.get(s.student_id)
+                name = stu.student_name if stu else f"学生{s.student_id}"
+                submit_time = s.submit_time.strftime("%m-%d %H:%M") if hasattr(s.submit_time, 'strftime') else str(s.submit_time)
+                submitted_students.append({
+                    "name": name,
+                    "className": "",
+                    "id": str(s.student_id),
+                    "submit_time": submit_time,
+                    "score": str(float(s.total_score)) if s.total_score else "0"
+                })
+
+        # 9. 未提交学生列表（同样取并集）
+        sa_set = set()
+        sa_r = await session.execute(
+            select(StudentAssignment.student_id).where(StudentAssignment.assignment_id == assignment_id)
+        )
+        sa_set = {row[0] for row in sa_r.all()}
+        sub_set = set(sub_student_ids)
+        all_student_ids = sa_set | sub_set
+
+        unsubmitted_ids = all_student_ids - sub_set
+        unsubmitted_students = []
+        if unsubmitted_ids:
+            stu_result = await session.execute(
+                select(Student).where(Student.user_id.in_(list(unsubmitted_ids)))
+            )
+            stu_map = {s.user_id: s for s in stu_result.scalars().all()}
+            for uid in sorted(unsubmitted_ids):
+                stu = stu_map.get(uid)
+                name = stu.student_name if stu else f"学生{uid}"
+                unsubmitted_students.append({
+                    "name": name,
+                    "className": "",
+                    "id": str(uid)
+                })
+
+        return {
+            "success": True,
+            "data": {
+                "total_students": total_students,
+                "submitted_count": submitted_count,
+                "avg_score": avg_score,
+                "total_score": total_score,
+                "excellent_rate": excellent_rate,
+                "hardest_question": hardest_q,
+                "score_distribution": {
+                    "excellent": excellent,
+                    "good": good,
+                    "pass": pass_,
+                    "fail": fail
+                },
+                "question_scores": question_scores,
+                "submitted_students": submitted_students,
+                "unsubmitted_students": unsubmitted_students
+            }
+        }
+
+    except Exception as e:
+        import traceback
+        print(f"获取统计数据失败: {e}")
+        traceback.print_exc()
+        return {"success": False, "message": f"获取统计数据失败: {str(e)}"}

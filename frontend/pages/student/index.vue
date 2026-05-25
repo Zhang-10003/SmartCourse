@@ -87,6 +87,7 @@
 
 <script>
 import request from '@/utils/request.js';
+import CONFIG from '@/utils/config.js';
 
 export default {
   data() {
@@ -200,7 +201,7 @@ export default {
         uni.showLoading({ title: '加载作业中...' });
         
         // 关键！student_id 作为 Query 参数放在 URL 后面！
-        const requestUrl = 'http://192.168.1.39:8000/api/student/share/' + cleanShareCode + '?student_id=' + userInfo.user_id;
+        const requestUrl = CONFIG.baseUrl + '/api/student/share/' + cleanShareCode + '?student_id=' + userInfo.user_id;
         
         console.log('🚀 发送请求详情:');
         console.log('  完整 URL:', requestUrl);

@@ -7,6 +7,8 @@ from models import AsyncSessionFactory, KnowledgeBase
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 import os
+import re
+import asyncio
 import logging
 
 logging.basicConfig(
@@ -21,6 +23,72 @@ router = APIRouter(prefix="/api", tags=["rag"])
 
 ASSETS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "assets")
 os.makedirs(ASSETS_DIR, exist_ok=True)
+
+
+def extract_text_from_file(file_path: str, file_ext: str) -> str:
+    """根据文件类型提取纯文本"""
+    try:
+        if file_ext == "pdf":
+            import fitz
+            doc = fitz.open(file_path)
+            text = ""
+            for page in doc:
+                text += page.get_text()
+            doc.close()
+            return text
+        elif file_ext == "docx":
+            import docx
+            doc = docx.Document(file_path)
+            return "\n".join([p.text for p in doc.paragraphs])
+        elif file_ext == "txt":
+            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read()
+    except Exception as e:
+        logger.error(f"文本提取失败 {file_path}: {e}")
+    return ""
+
+
+def clean_and_chunk(text: str, chunk_size: int = 512, overlap: int = 64) -> list:
+    """清洗文本并按固定大小分块（带重叠窗口）"""
+    text = re.sub(r'\s+', ' ', text).strip()
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap
+    return [c for c in chunks if c.strip()]
+
+
+async def vectorize_file(file_id: int, file_path: str, file_ext: str):
+    """异步：提取文本 → 清洗分块 → embedding → 写入 Chroma"""
+    try:
+        logger.info(f"[RAG] 开始向量化文件 {file_id}")
+        text = extract_text_from_file(file_path, file_ext)
+        if not text:
+            logger.warning(f"[RAG] 文件 {file_path} 未提取到文本")
+            return
+        chunks = clean_and_chunk(text)
+        logger.info(f"[RAG] 文件 {file_path} 提取到 {len(chunks)} 个文本块")
+
+        from core.rag.rag_service import RAGService
+        rag = RAGService()
+        rag.add_knowledge(chunks)
+        logger.info(f"[RAG] Chroma 写入完成，共 {len(chunks)} 条")
+
+        async with AsyncSessionFactory() as session:
+            result = await session.execute(select(KnowledgeBase).filter(KnowledgeBase.id == file_id))
+            kb = result.scalar_one_or_none()
+            if kb:
+                kb.embedding_status = 1
+                await session.commit()
+                logger.info(f"[RAG] 文件 {file_id} embedding_status 更新为 1")
+        logger.info(f"[RAG] 向量化完成 file_id={file_id}")
+
+    except Exception as e:
+        logger.error(f"[RAG] 向量化失败 file_id={file_id}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 
 class KnowledgeBaseResponse(BaseModel):
@@ -161,6 +229,8 @@ async def upload_file(file: UploadFile = File(...)):
             raise HTTPException(status_code=500, detail=f"保存数据库失败: {str(db_error)}")
         
         logger.info(f"========== 文件上传成功 ==========")
+
+        asyncio.create_task(vectorize_file(kb_file.id, file_path, file_ext))
         
         return JSONResponse(
             status_code=200,

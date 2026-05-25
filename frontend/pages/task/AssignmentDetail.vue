@@ -93,7 +93,7 @@
           />
           
           <AIFeedback 
-            v-if="(taskInfo.status === 'submitted' || taskInfo.status === 'expired') && questionFeedbacks[index]" 
+            v-if="taskInfo.status === 'expired' && questionFeedbacks[index]" 
             :res-json="questionFeedbacks[index]" 
             style="display:block;"
           />

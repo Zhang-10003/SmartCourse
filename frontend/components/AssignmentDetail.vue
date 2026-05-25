@@ -267,6 +267,8 @@
 </template>
 
 <script>
+import CONFIG from '@/utils/config.js';
+
 export default {
   name: 'AssignmentDetail',
   props: {
@@ -322,11 +324,9 @@ export default {
   computed: {
     shareLink() {
       if (this.assignment.share_code) {
-        // 使用 HTTP 格式，浏览器可以访问，页面中会尝试唤醒 app
-        return 'http://192.168.1.39:8000/share/' + this.assignment.share_code;
+        return CONFIG.shareUrl + '/' + this.assignment.share_code;
       }
-      // 备用格式
-      return 'http://192.168.1.39:8000/share/';
+      return CONFIG.shareUrl + '/';
     },
     remainingTimeText() {
       let seconds = this.remainingSeconds;

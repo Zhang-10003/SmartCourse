@@ -440,6 +440,10 @@
         <view class="rag-modal-body">
           <span class="section-label">文件列表</span>
           
+          <view v-if="uploadStatus.message" :class="['upload-status', uploadStatus.type]">
+            {{ uploadStatus.message }}
+          </view>
+          
           <view v-if="ragFiles.length === 0" class="text-center py-10 text-slate-400">
             <text class="text-lg">暂无文件</text>
             <text class="text-sm block mt-2">请上传知识库文件</text>
@@ -661,8 +665,7 @@ const resourceList = ref([]);
 
 const fetchResourceList = async () => {
   try {
-    const baseUrl = 'http://localhost:8000';
-    const response = await fetch(`${baseUrl}/api/rag/knowledge-base`, {
+    const response = await fetch(CONFIG.baseUrl + '/api/rag/knowledge-base', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -688,8 +691,7 @@ const handleResourceUpload = async (file) => {
   formData.append('file', file);
   
   try {
-    const baseUrl = 'http://localhost:8000';
-    const response = await fetch(`${baseUrl}/api/rag/knowledge-base`, {
+    const response = await fetch(CONFIG.baseUrl + '/api/rag/knowledge-base', {
       method: 'POST',
       body: formData,
       headers: {
@@ -892,6 +894,11 @@ const ragModal = reactive({
   activeTab: '全部'
 });
 
+const uploadStatus = reactive({
+  message: '',
+  type: ''
+});
+
 const ragFiles = ref([]);
 const ragTabs = ['全部', 'pdf', 'docx', 'txt'];
 
@@ -903,9 +910,8 @@ const formatFileSize = (bytes) => {
 
 const fetchKnowledgeBase = async () => {
   try {
-    const baseUrl = 'http://localhost:8000';
     const type = ragModal.activeTab === '全部' ? '' : ragModal.activeTab;
-    const url = type ? `${baseUrl}/api/rag/knowledge-base?file_type=${type}` : `${baseUrl}/api/rag/knowledge-base`;
+    const url = type ? CONFIG.baseUrl + '/api/rag/knowledge-base?file_type=' + type : CONFIG.baseUrl + '/api/rag/knowledge-base';
     console.log('获取知识库列表URL:', url);
     const response = await fetch(url, {
       method: 'GET',
@@ -963,8 +969,7 @@ const uploadFile = async (file) => {
     console.log('开始发送请求...');
     const startTime = Date.now();
     
-    const baseUrl = 'http://localhost:8000';
-    const url = `${baseUrl}/api/rag/knowledge-base`;
+    const url = CONFIG.baseUrl + '/api/rag/knowledge-base';
     console.log('请求URL:', url);
     
     const response = await fetch(url, {
@@ -2820,6 +2825,30 @@ const confirmResourceAssociation = () => {
 }
 
 .file-item {
+  font-size: 14px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+  text-align: center;
+  font-weight: 500;
+}
+
+.upload-status.success {
+  background: #ecfdf5;
+  color: #10b981;
+}
+
+.upload-status.error {
+  background: #fef2f2;
+  color: #ef4444;
+}
+
+.upload-status.loading {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.file-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2860,6 +2889,8 @@ const confirmResourceAssociation = () => {
 .file-details .size {
   font-size: 12px;
   color: #94a3b8;
+  width: 80px;
+  text-align: left;
 }
 
 .status-badge {
