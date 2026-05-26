@@ -4,23 +4,23 @@
       <view class="status-bar"></view>
       <view class="nav-content">
         <text class="nav-title">消息通知</text>
-        <text class="nav-action">全部已读</text>
+        <text class="nav-action" @click="markAllAsRead">全部已读</text>
       </view>
     </view>
 
     <view class="notice-list">
       <view 
         class="notice-card" 
-        v-for="(msg, index) in notices" 
-        :key="index"
+        v-for="msg in notices" 
+        :key="msg.message_id"
         @click="handleDetail(msg)"
       >
         <view class="card-header">
           <view class="title-section">
-            <view class="unread-dot" v-if="index === 0"></view>
+            <view class="unread-dot" v-if="!msg.is_read"></view>
             <text class="notice-title">{{ msg.title }}</text>
           </view>
-          <text class="notice-time">{{ msg.time }}</text>
+          <text class="notice-time">{{ formatTime(msg.created_at) }}</text>
         </view>
         
         <view class="notice-content">{{ msg.content }}</view>
@@ -30,31 +30,140 @@
           <text class="cuIcon-right icon"></text>
         </view>
       </view>
+      
+      <view v-if="notices.length === 0" class="empty-state">
+        <text class="empty-text">暂无消息</text>
+      </view>
     </view>
   </view>
 </template>
 
-<script setup>
-import { ref } from 'vue';
+<script>
+import request from '@/utils/request.js';
 
-const notices = ref([
-  { title: '课程变动通知', content: '明天的计算机网络课程改至 302 教室，请同学们带好教材准时参加。', time: '10:30' },
-  { title: '作业提醒', content: '数据结构链表专题作业即将截止，请在今晚 23:59 前完成提交。', time: '昨天' },
-  { title: '系统更新', content: '智能课程助手 V1.2 版本已发布，修复了已知的问题。', time: '3天前' }
-]);
-
-const handleDetail = (msg) => {
-  console.log('跳转详情', msg.title);
+export default {
+  data() {
+    return {
+      notices: []
+    };
+  },
+  onLoad() {
+    this.loadMessages();
+  },
+  methods: {
+    formatTime(timeStr) {
+      if (!timeStr) return '';
+      
+      try {
+        const now = new Date();
+        const messageTime = new Date(timeStr);
+        const diff = now - messageTime;
+        
+        const minutes = Math.floor(diff / (1000 * 60));
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        
+        if (minutes < 1) {
+          return '刚刚';
+        } else if (minutes < 60) {
+          return `${minutes}分钟前`;
+        } else if (hours < 24) {
+          return `${hours}小时前`;
+        } else if (days < 7) {
+          return `${days}天前`;
+        } else {
+          const month = String(messageTime.getMonth() + 1).padStart(2, '0');
+          const day = String(messageTime.getDate()).padStart(2, '0');
+          const hour = String(messageTime.getHours()).padStart(2, '0');
+          const minute = String(messageTime.getMinutes()).padStart(2, '0');
+          return `${month}-${day} ${hour}:${minute}`;
+        }
+      } catch (e) {
+        console.error('时间格式化失败:', e);
+        return '';
+      }
+    },
+    
+    async loadMessages() {
+      try {
+        const userInfo = uni.getStorageSync('userInfo');
+        console.log('用户信息:', userInfo);
+        
+        if (!userInfo || !userInfo.user_id) {
+          console.log('用户未登录或user_id不存在');
+          return;
+        }
+        
+        const res = await request.get(`/api/students/${userInfo.user_id}/messages`);
+        console.log('消息列表响应:', res);
+        
+        if (res && res.success) {
+          this.notices = res.data || [];
+          console.log('加载了', this.notices.length, '条消息');
+        } else {
+          console.log('请求失败:', res);
+          uni.showToast({ title: res.message || '加载失败', icon: 'none' });
+        }
+      } catch (error) {
+        console.error('加载消息列表失败:', error);
+        uni.showToast({ title: '加载失败', icon: 'none' });
+      }
+    },
+    
+    async markAsRead(messageId) {
+      try {
+        const res = await request.put(`/api/messages/${messageId}/read`);
+        console.log('标记已读响应:', res);
+        
+        if (res && res.success) {
+          const msg = this.notices.find(m => m.message_id === messageId);
+          if (msg) {
+            msg.is_read = true;
+          }
+        }
+      } catch (error) {
+        console.error('标记已读失败:', error);
+      }
+    },
+    
+    async markAllAsRead() {
+      try {
+        const userInfo = uni.getStorageSync('userInfo');
+        if (!userInfo || !userInfo.user_id) {
+          return;
+        }
+        
+        const res = await request.put(`/api/students/${userInfo.user_id}/messages/read-all`);
+        console.log('全部已读响应:', res);
+        
+        if (res && res.success) {
+          this.notices.forEach(msg => {
+            msg.is_read = true;
+          });
+          uni.showToast({ title: '已全部标记为已读', icon: 'success' });
+        }
+      } catch (error) {
+        console.error('全部已读失败:', error);
+      }
+    },
+    
+    handleDetail(msg) {
+      console.log('查看消息详情:', msg);
+      
+      if (!msg.is_read) {
+        this.markAsRead(msg.message_id);
+      }
+    }
+  }
 };
 </script>
 
 <style lang="scss" scoped>
 .container {
   min-height: 100vh;
-  background: #f8f9fa; // 使用浅灰色背景，衬托白色卡片
+  background: #f8f9fa;
 }
 
-/* 导航栏优化 */
 .custom-navbar {
   position: fixed;
   top: 0;
@@ -62,7 +171,7 @@ const handleDetail = (msg) => {
   right: 0;
   z-index: 999;
   background-color: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px); // 毛玻璃效果
+  backdrop-filter: blur(10px);
   border-bottom: 1rpx solid #eee;
 
   .status-bar {
@@ -75,7 +184,7 @@ const handleDetail = (msg) => {
     padding: 0 15px;
     display: flex;
     align-items: center;
-    justify-content: space-between; // 标题居中，右侧放功能键
+    justify-content: space-between;
     
     .nav-title {
       position: absolute;
@@ -88,13 +197,12 @@ const handleDetail = (msg) => {
     
     .nav-action {
       font-size: 14px;
-      color: #007aff; // 品牌色
+      color: #007aff;
       margin-left: auto;
     }
   }
 }
 
-/* 列表区域优化 */
 .notice-list {
   padding: calc(var(--status-bar-height) + 60px) 15px 30px;
 }
@@ -104,11 +212,11 @@ const handleDetail = (msg) => {
   border-radius: 16rpx;
   padding: 18px;
   margin-bottom: 15px;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.03); // 极轻微的阴影
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.03);
   transition: transform 0.2s;
 
   &:active {
-    transform: scale(0.98); // 点击反馈
+    transform: scale(0.98);
     background: #fafafa;
   }
 
@@ -128,6 +236,7 @@ const handleDetail = (msg) => {
         background: #ff4d4f;
         border-radius: 50%;
         margin-right: 8px;
+        flex-shrink: 0;
       }
       
       .notice-title {
@@ -140,6 +249,8 @@ const handleDetail = (msg) => {
     .notice-time {
       color: #b2bec3;
       font-size: 12px;
+      flex-shrink: 0;
+      margin-left: 10px;
     }
   }
 
@@ -149,7 +260,7 @@ const handleDetail = (msg) => {
     line-height: 1.5;
     display: -webkit-box;
     -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2; // 最多显示两行，超出省略
+    -webkit-line-clamp: 2;
     overflow: hidden;
   }
 
@@ -171,6 +282,18 @@ const handleDetail = (msg) => {
       color: #dfe6e9;
       font-size: 12px;
     }
+  }
+}
+
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 100rpx 0;
+  
+  .empty-text {
+    color: #b2bec3;
+    font-size: 14px;
   }
 }
 </style>
