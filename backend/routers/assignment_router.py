@@ -605,12 +605,12 @@ async def submit_assignment(
         )
         questions = {q.question_id: q for q in questions_result.scalars().all()}
 
-        # 3. 创建提交记录
+        # 3. 创建提交记录 - 初始状态设为批改中
         submission = Submission(
             assignment_id=req.assignment_id,
             student_id=req.student_id,
             submit_time=datetime.now(),
-            status="submitted"
+            status="grading"
         )
         session.add(submission)
         await session.flush()
@@ -641,21 +641,21 @@ async def submit_assignment(
             StudentAnswer.__table__.insert(), answer_records
         )
 
-        # 6. 更新总分
-        submission.total_score = total_score
+        # 6. 暂不更新总分，等AI批改完成后再更新
+        submission.total_score = None
         await session.commit()
 
-        print(f"提交成功，总分: {total_score}")
+        print(f"提交成功，进入AI批改流程")
 
         # 异步触发 AI 批改
-        asyncio.create_task(grade_submission(submission.submission_id))
+        asyncio.create_task(grade_submission(submission.submission_id, total_score))
 
         return {
             "success": True,
             "data": {
                 "submission_id": submission.submission_id,
-                "total_score": float(total_score) if total_score else 0,
-                "status": "submitted"
+                "total_score": None,
+                "status": "grading"
             },
             "message": "提交成功"
         }
@@ -891,13 +891,15 @@ async def get_assignment_stats(
         for i, q in enumerate(questions):
             q_answers = [a for a in all_answers if a.question_id == q.question_id]
             wrong_count = sum(1 for a in q_answers if a.is_correct is False)
-            error_rate = wrong_count / submitted_count if submitted_count else 0
+            # 没有学生提交时，错误率设为-1，表示不显示或显示为"-"
+            error_rate = wrong_count / submitted_count if submitted_count else -1
             question_scores.append({
                 "label": f"Q{q.sort_order + 1}",
-                "error_rate": round(error_rate, 2),
+                "error_rate": round(error_rate, 2) if error_rate >= 0 else -1,
                 "color": colors_pool[i % len(colors_pool)]
             })
-            if error_rate > hardest_q["error_rate"]:
+            # 只在有错误率时才更新最难题目
+            if error_rate >= 0 and error_rate > hardest_q["error_rate"]:
                 hardest_q = {"label": f"Q{q.sort_order + 1}", "error_rate": round(error_rate, 2)}
 
         # 7. 成绩分布 + 平均分
@@ -929,12 +931,25 @@ async def get_assignment_stats(
                 stu = student_map.get(s.student_id)
                 name = stu.student_name if stu else f"学生{s.student_id}"
                 submit_time = s.submit_time.strftime("%m-%d %H:%M") if hasattr(s.submit_time, 'strftime') else str(s.submit_time)
+                
+                # 根据状态决定显示什么
+                if s.status == "grading":
+                    status_text = "批改中"
+                    score_text = "-"
+                elif s.status == "graded":
+                    status_text = "已批改"
+                    score_text = str(float(s.total_score)) if s.total_score else "0"
+                else:
+                    status_text = "已提交"
+                    score_text = str(float(s.total_score)) if s.total_score else "0"
+                
                 submitted_students.append({
                     "name": name,
                     "className": "",
                     "id": str(s.student_id),
                     "submit_time": submit_time,
-                    "score": str(float(s.total_score)) if s.total_score else "0"
+                    "score": score_text,
+                    "status": status_text
                 })
 
         # 9. 未提交学生列表（同样取并集）

@@ -158,7 +158,7 @@
                 <view class="drag-handle-expanded p-4 cursor-move select-none flex items-center justify-between border-b border-dashed border-slate-100 bg-slate-50/40">
                   <view class="flex items-center gap-2">
                     <span :class="[node.color, 'px-2.5 py-1 text-xs font-bold rounded-lg text-white']">{{ node.type }}</span>
-                    <span class="text-xs font-bold text-slate-400">#{{ String(index + 1).padStart(2, '0') }}</span>
+                    <span v-if="node.type !== '教材/课件'" class="text-xs font-bold text-slate-400">{{ String(getQuestionIndex(index)).padStart(2, '0') }}.</span>
                   </view>
                   <button 
                     @click.stop="shrinkNode(index)" 
@@ -180,7 +180,7 @@
                 <view class="flex-1 overflow-y-auto p-4 scrollbar-hide">
                   <view v-if="node.type === '单选题'">
                     <QuestionChoiceEditor 
-                      :index="index + 1"
+                      :index="getQuestionIndex(index)"
                       :modelValue="node.data"
                       :answer="node.answer || 0"
                       @update:modelValue="(val) => { node.data = val }"
@@ -189,7 +189,7 @@
                   </view>
                   <view v-else-if="node.type === '多选题'">
                     <QuestionMultipleChoiceEditor 
-                      :index="index + 1"
+                      :index="getQuestionIndex(index)"
                       :modelValue="node.data"
                       :answer="node.answer || []"
                       @update:modelValue="(val) => { node.data = val }"
@@ -198,33 +198,33 @@
                   </view>
                   <view v-else-if="node.type === '判断题'">
                     <QuestionTrueFalseEditor 
-                      :index="index + 1"
+                      :index="getQuestionIndex(index)"
                       v-model="node.data"
                     />
                   </view>
                   <view v-else-if="node.type === '代码填空'">
                     <QuestionCodeFillEditor 
-                      :index="index + 1"
+                      :index="getQuestionIndex(index)"
                       :modelValue="node.data"
                       @update:modelValue="(val) => { node.data = val }"
                     />
                   </view>
                   <view v-else-if="node.type === '填空题'">
                     <QuestionFillBlankEditor 
-                      :index="index + 1"
+                      :index="getQuestionIndex(index)"
                       v-model="node.data"
                     />
                   </view>
                   <view v-else-if="node.type === '匹配题'">
                     <QuestionMatchingEditor 
-                      :index="index + 1"
+                      :index="getQuestionIndex(index)"
                       :modelValue="node.data"
                       @update:modelValue="(val) => { node.data = val }"
                     />
                   </view>
                   <view v-else-if="node.type === '简答题'">
                     <QuestionShortAnswerEditor 
-                      :index="index + 1"
+                      :index="getQuestionIndex(index)"
                       v-model="node.data"
                     />
                   </view>
@@ -1784,10 +1784,19 @@ async function fetchAssignmentStats() {
       assignmentStats.avgScore = d.avg_score || 0;
       assignmentStats.totalScore = d.total_score || 0;
       assignmentStats.excellentRate = d.excellent_rate || '0%';
-      assignmentStats.hardestQuestion = d.hardest_question?.label || '—';
-      assignmentStats.hardestErrorRate = (d.hardest_question?.error_rate * 100).toFixed(0) + '%' || '0%';
+      // 处理高频错题：只有在有数据时才显示
+      if (d.hardest_question && d.hardest_question.error_rate >= 0) {
+        assignmentStats.hardestQuestion = d.hardest_question.label || '—';
+        assignmentStats.hardestErrorRate = (d.hardest_question.error_rate * 100).toFixed(0) + '%';
+      } else {
+        assignmentStats.hardestQuestion = '—';
+        assignmentStats.hardestErrorRate = '—';
+      }
+      // 处理题目分数：error_rate为-1时表示没有数据，score设为null
       questionScores.value = (d.question_scores || []).map(q => ({
-        label: q.label, score: Math.round((1 - q.error_rate) * 100), color: q.color
+        label: q.label, 
+        score: q.error_rate >= 0 ? Math.round((1 - q.error_rate) * 100) : null, 
+        color: q.color
       }));
       submittedStudents.value = (d.submitted_students || []).map(s => ({
         name: s.name, className: s.className || '', id: s.id,

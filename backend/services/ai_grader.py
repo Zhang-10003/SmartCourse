@@ -139,7 +139,7 @@ def call_llm(prompt: str) -> dict | None:
         return None
 
 
-async def grade_submission(submission_id: int):
+async def grade_submission(submission_id: int, total_score: int = 0):
     """后台异步批改：查询数据 → 调LLM → 写库"""
     print(f"[AI_GRADER] ===== 开始批改 submission_id={submission_id} =====", flush=True)
     try:
@@ -199,7 +199,14 @@ async def grade_submission(submission_id: int):
             llm_result = await asyncio.to_thread(call_llm, prompt)
             print(f"[AI_GRADER] 7. LLM 返回: {str(llm_result)[:200]}", flush=True)
             if not llm_result:
-                print(f"[AI_GRADER] ❌ LLM 批改无返回，跳过", flush=True)
+                print(f"[AI_GRADER] ❌ LLM 批改无返回，标记为已批改", flush=True)
+                # 即使LLM失败，也标记为已批改
+                await session.execute(
+                    update(Submission)
+                    .where(Submission.submission_id == submission_id)
+                    .values(status="graded", total_score=total_score)
+                )
+                await session.commit()
                 return
 
             results = llm_result.get("results", [])
@@ -230,6 +237,13 @@ async def grade_submission(submission_id: int):
                     .where(Submission.submission_id == submission_id)
                     .values(feedback=combined_feedback)
                 )
+
+            # 更新状态为已批改，并更新分数
+            await session.execute(
+                update(Submission)
+                .where(Submission.submission_id == submission_id)
+                .values(status="graded", total_score=total_score)
+            )
 
             await session.commit()
             print(f"[AI_GRADER] ✅ 批改完成, 数据已写入 DB", flush=True)

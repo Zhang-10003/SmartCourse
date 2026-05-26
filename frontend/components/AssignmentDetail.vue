@@ -149,6 +149,7 @@
             @mousemove="onDrag"
             @mouseup="stopDrag"
             @mouseleave="stopDrag"
+            @scroll="syncScroll"
           >
             <view 
               class="bar-columns" 
@@ -157,11 +158,33 @@
               <view class="bar-column" v-for="(item, index) in questionScores" :key="index">
                 <view 
                   class="bar-active-fill"
+                  v-if="item.score !== null"
                   :style="{ 
                     height: item.score * 1.8 + 'px', 
                     backgroundColor: item.color
                   }"
                 ></view>
+                <view 
+                  class="bar-empty"
+                  v-else
+                >
+                  <text>—</text>
+                </view>
+              </view>
+            </view>
+          </view>
+        </view>
+        <view class="bar-labels-wrapper">
+          <view class="chart-y-axis-spacer"></view>
+          <view 
+            class="bar-scroll-area"
+            @scroll="syncScroll"
+          >
+            <view 
+              class="bar-columns" 
+              :class="{ 'bar-columns-evenly': questionScores.length <= 8, 'bar-columns-scrollable': questionScores.length > 8 }"
+            >
+              <view class="bar-column" v-for="(item, index) in questionScores" :key="index">
                 <text class="bar-label">{{ item.label }}</text>
               </view>
             </view>
@@ -214,14 +237,14 @@
             </view>
             <view class="student-details">
               <text class="student-name">{{ student.name }}</text>
-              <text class="student-meta">{{ student.className }} · {{ student.id }}</text>
+              <text class="student-meta">学号：{{ student.id }}</text>
             </view>
           </view>
           <view class="row-cell time-cell">
             <text>{{ student.submitTime }}</text>
           </view>
           <view class="row-cell status-cell">
-            <view class="status-badge">
+            <view class="status-badge" :class="{ 'grading': student.status === '批改中' }">
               <text>{{ student.status }}</text>
             </view>
           </view>
@@ -249,7 +272,7 @@
             </view>
             <view class="student-details">
               <text class="student-name">{{ student.name }}</text>
-              <text class="student-meta">{{ student.className }} · {{ student.id }}</text>
+              <text class="student-meta">学号：{{ student.id }}</text>
             </view>
           </view>
           <view class="row-cell empty-cell"></view>
@@ -378,21 +401,33 @@ export default {
     startDrag(e) {
       this.isDragging = true;
       this.startX = e.pageX;
-      const scrollArea = this.$el.querySelector('.bar-scroll-area');
-      if (scrollArea) {
-        this.scrollLeftStart = scrollArea.scrollLeft;
+      const scrollAreas = this.$el.querySelectorAll('.bar-scroll-area');
+      if (scrollAreas.length > 0) {
+        this.scrollLeftStart = scrollAreas[0].scrollLeft;
       }
     },
     onDrag(e) {
       if (!this.isDragging) return;
-      const scrollArea = this.$el.querySelector('.bar-scroll-area');
-      if (scrollArea) {
+      const scrollAreas = this.$el.querySelectorAll('.bar-scroll-area');
+      if (scrollAreas.length > 0) {
         const walk = e.pageX - this.startX;
-        scrollArea.scrollLeft = this.scrollLeftStart - walk;
+        const newScrollLeft = this.scrollLeftStart - walk;
+        scrollAreas.forEach(area => {
+          area.scrollLeft = newScrollLeft;
+        });
       }
     },
     stopDrag() {
       this.isDragging = false;
+    },
+    syncScroll(e) {
+      const scrollAreas = this.$el.querySelectorAll('.bar-scroll-area');
+      const source = e.target;
+      scrollAreas.forEach(area => {
+        if (area !== source) {
+          area.scrollLeft = source.scrollLeft;
+        }
+      });
     },
     startCountdown() {
       this.timer = setInterval(() => {
@@ -899,12 +934,23 @@ export default {
   overflow: hidden;
 }
 
+.bar-labels-wrapper {
+  display: flex;
+  margin-top: 12px;
+}
+
 .chart-y-axis {
   flex-shrink: 0;
   width: 40px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  padding-right: 8px;
+}
+
+.chart-y-axis-spacer {
+  flex-shrink: 0;
+  width: 40px;
   padding-right: 8px;
 }
 
@@ -938,6 +984,11 @@ export default {
   padding: 0 20px;
 }
 
+.bar-labels-wrapper .bar-columns {
+  align-items: flex-start;
+  height: auto;
+}
+
 .bar-columns-evenly {
   justify-content: space-around;
   width: 100%;
@@ -964,11 +1015,20 @@ export default {
   transition: transform 0.3s ease;
 }
 
+.bar-empty {
+  width: 32px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #cbd5e1;
+  font-size: 20px;
+}
+
 .bar-label {
   font-size: 12px;
   font-weight: 700;
   color: #1e293b;
-  margin-top: 12px;
   white-space: nowrap;
 }
 
@@ -1136,6 +1196,17 @@ export default {
   font-size: 12px;
   font-weight: 600;
   display: inline-block;
+}
+
+.status-badge.grading {
+  background: #fef3c7;
+  color: #d97706;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .score-cell {
