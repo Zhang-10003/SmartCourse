@@ -27,7 +27,7 @@ const request = {
             uni.request({
                 url: CONFIG.baseUrl + url,
                 method: method,
-                data: data,
+                data: method === 'GET' ? data : JSON.stringify(data),
                 header: defaultHeader,
                 timeout: CONFIG.timeout,
                 success: (response) => {

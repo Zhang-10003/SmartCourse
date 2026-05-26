@@ -41,6 +41,13 @@
 			  }
 			},
 			{
+			  "path": "pages/task/ReportDetail",
+			  "style": {
+				"navigationBarTitleText": "学情反馈报告",
+				"navigationStyle": "custom"
+			  }
+			},
+			{
 			  "path": "pages/teacher/index",
 			  "style": { "navigationStyle": "custom" }
 			}

@@ -61,7 +61,7 @@ class VectorDB:
             ids = [f"doc_{i}" for i in range(len(documents))]
         
         if metadatas is None:
-            metadatas = [{} for _ in documents]
+            metadatas = [{"source": "upload"} for _ in documents]
         
         self.collection.add(
             documents=documents,
