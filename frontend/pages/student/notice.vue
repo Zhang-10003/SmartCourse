@@ -50,6 +50,9 @@ export default {
   onLoad() {
     this.loadMessages();
   },
+  onShow() {
+    this.loadMessages();
+  },
   methods: {
     formatTime(timeStr) {
       if (!timeStr) return '';
