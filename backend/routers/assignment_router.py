@@ -909,8 +909,8 @@ async def get_assignment_stats(
             s_score = float(s.total_score) if s.total_score else 0
             pct = s_score / total_score if total_score else 0
             avg_score += s_score
-            if pct >= 0.8: excellent += 1
-            elif pct >= 0.7: good += 1
+            if pct >= 0.9: excellent += 1
+            elif pct >= 0.75: good += 1
             elif pct >= 0.6: pass_ += 1
             else: fail += 1
 

@@ -108,7 +108,7 @@
       <view class="chart-card pie-card">
         <h3 class="chart-title">成绩分布概览</h3>
         <view class="pie-container">
-          <view class="css-donut-chart"></view>
+          <view class="css-donut-chart" :style="donutStyle"></view>
           <view class="chart-legends">
             <view class="legend-item">
               <view class="legend-dot legend-dot-indigo"></view>
@@ -316,7 +316,8 @@ export default {
         totalScore: 0,
         excellentRate: '0%',
         hardestQuestion: '—',
-        hardestErrorRate: '0%'
+        hardestErrorRate: '0%',
+        scoreDistribution: { excellent: 0, good: 0, pass: 0, fail: 0 }
       })
     },
     questionScores: {
@@ -371,6 +372,22 @@ export default {
       } else {
         return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
       }
+    },
+    donutStyle() {
+      const sd = this.stats.scoreDistribution || { excellent: 0, good: 0, pass: 0, fail: 0 };
+      const total = sd.excellent + sd.good + sd.pass + sd.fail;
+      if (total === 0) {
+        return { background: 'conic-gradient(#f1f5f9 0% 100%)' };
+      }
+      const e = sd.excellent / total * 100;
+      const g = sd.good / total * 100;
+      const p = sd.pass / total * 100;
+      const segs = [];
+      if (e > 0) segs.push(`#4f46e5 0% ${e}%`);
+      if (g > 0) segs.push(`#22c55e ${e}% ${e + g}%`);
+      if (p > 0) segs.push(`#f59e0b ${e + g}% ${e + g + p}%`);
+      if (e + g + p < 100) segs.push(`#ef4444 ${e + g + p}% 100%`);
+      return { background: `conic-gradient(${segs.join(', ')})` };
     }
   },
   methods: {
@@ -914,16 +931,15 @@ export default {
 }
 
 .legend-dot-light-indigo {
-  background: #818cf8;
+  background: #22c55e;
 }
 
 .legend-dot-pale-indigo {
-  background: #c7d2fe;
+  background: #f59e0b;
 }
 
 .legend-dot-slate {
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background: #ef4444;
 }
 
 .bar-chart-wrapper {

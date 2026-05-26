@@ -751,7 +751,8 @@ const assignmentStats = reactive({
   totalScore: 0,
   excellentRate: '0%',
   hardestQuestion: '—',
-  hardestErrorRate: 0
+  hardestErrorRate: 0,
+  scoreDistribution: { excellent: 0, good: 0, pass: 0, fail: 0 }
 });
 
 const questionScores = ref([]);
@@ -1798,6 +1799,7 @@ async function fetchAssignmentStats() {
         score: q.error_rate >= 0 ? Math.round((1 - q.error_rate) * 100) : null, 
         color: q.color
       }));
+      assignmentStats.scoreDistribution = d.score_distribution || { excellent: 0, good: 0, pass: 0, fail: 0 };
       submittedStudents.value = (d.submitted_students || []).map(s => ({
         name: s.name, className: s.className || '', id: s.id,
         submitTime: s.submit_time || '', score: s.score || '0'
