@@ -317,6 +317,7 @@
             :submittedStudents="submittedStudents"
             :unsubmittedStudents="unsubmittedStudents"
             @close="closeDetailView"
+            @deadline-click="handleCloseClick(selectedAssignment.assignment_id)"
           />
         </view>
 
@@ -761,6 +762,7 @@ const unsubmittedStudents = ref([]);
 const detailAssignmentId = ref(null);
 let statsTimer = null;
 let eventSource = null;
+let isClosing = false;
 
 const selectedPortId = ref(null);
 const connections = ref([]);
@@ -1767,6 +1769,7 @@ const openAssignmentDetail = (title, deadline, status, participants, shareCode, 
   selectedAssignment.status = status;
   selectedAssignment.participants = participants || [];
   selectedAssignment.share_code = shareCode || '';
+  selectedAssignment.assignment_id = assignmentId || null;
   currentView.value = 'detail';
 
   detailAssignmentId.value = assignmentId || null;
@@ -1893,6 +1896,10 @@ const closeReportModal = () => {
 };
 
 const handleCloseClick = async (assignmentId) => {
+  if (isClosing) return;
+  isClosing = true;
+  selectedAssignment.status = '已截止';
+  selectedAssignment.deadline_ts = Math.floor(Date.now() / 1000);
   try {
     await fetch(CONFIG.baseUrl + `/api/assignments/${assignmentId}/close`, { method: 'POST' });
     showToast('作业已截止，报告生成中', 'success');
@@ -1901,6 +1908,8 @@ const handleCloseClick = async (assignmentId) => {
   } catch (e) {
     console.error('截止作业失败:', e);
     showToast('截止失败', 'error');
+  } finally {
+    isClosing = false;
   }
 };
 

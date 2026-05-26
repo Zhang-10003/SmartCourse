@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from models import Assignment, Question, AssignmentShare, User, Student, StudentAssignment, Submission, StudentAnswer, AssignmentReport
+from models import Assignment, Question, AssignmentShare, User, Student, StudentAssignment, Submission, StudentAnswer, AssignmentReport, Message
 from models.question import VALID_QUESTION_TYPES
 from dependencies import get_session
 from schemas.assignment import (
@@ -33,15 +33,19 @@ async def create_assignment(
     session: AsyncSession = Depends(get_session)
 ):
     try:
+        now = datetime.now()
         new_assignment = Assignment(
             assignment_title=assignment.assignment_title,
             deadline=assignment.deadline,
             status=assignment.status,
-            user_id=1
+            user_id=1,
+            created_at=now  # 显式设置创建时间
         )
         session.add(new_assignment)
         await session.commit()
         await session.refresh(new_assignment)
+        
+        print(f"创建新作业: id={new_assignment.assignment_id}, title={new_assignment.assignment_title}, created_at={new_assignment.created_at}")
         
         return {
             "success": True,
@@ -56,6 +60,7 @@ async def create_assignment(
         }
     except Exception as e:
         await session.rollback()
+        print(f"创建作业失败: {e}")
         return {"success": False, "error": str(e), "message": "创建作业失败"}
 
 
@@ -408,19 +413,29 @@ async def get_teacher_assignments(
         # 先处理作业数据
         assignment_with_deadline = []
         for assignment in assignments:
-            # 判断作业状态
-            status = "进行中"
-
+            # 先获取并处理当前作业的 deadline
             deadline = assignment.deadline
             if isinstance(deadline, str):
                 from datetime import datetime as dt
                 try:
-                    deadline = dt.fromisoformat(deadline.replace('Z', '+00:00'))
-                except:
-                    pass
-
-            if deadline and now > deadline:
+                    if 'Z' in deadline:
+                        deadline = dt.fromisoformat(deadline.replace('Z', '+00:00'))
+                    else:
+                        deadline = dt.fromisoformat(deadline)
+                except Exception as e:
+                    print(f"解析作业 {assignment.assignment_id} 的 deadline 失败: {e}")
+                    deadline = now
+            
+            # 判断作业状态 - 优先检查 status 字段，再检查截止时间
+            status = "进行中"
+            
+            # 首先检查数据库中的 status 字段
+            if hasattr(assignment, 'status') and assignment.status == 'closed':
                 status = "已截止"
+            else:
+                # 如果没有 closed 状态，再检查截止时间
+                if deadline and now > deadline:
+                    status = "已截止"
             
             # 保存原始的 deadline 用于排序
             assignment_with_deadline.append({
@@ -433,8 +448,7 @@ async def get_teacher_assignments(
         assignment_with_deadline.sort(key=lambda x: x["deadline_date"] if x["deadline_date"] else datetime.min, reverse=True)
         
         # 构造最终返回数据
-        today_list = []
-        recent_list = []
+        all_list = []
         today_date = now.date()
 
         for item in assignment_with_deadline:
@@ -454,13 +468,33 @@ async def get_teacher_assignments(
             except Exception as e:
                 print(f"查询 share_code 失败: {e}")
             
-            created_date = assignment.created_at
-            if isinstance(created_date, str):
-                from datetime import datetime as dt
-                try:
-                    created_date = dt.fromisoformat(created_date.replace('Z', '+00:00'))
-                except:
-                    pass
+            # 简化处理：所有作业都显示，不做复杂的日期分类
+            # 新发布的作业直接放入 today_list，其他的放入 recent_list
+            # 我们用 created_at 的时间来判断是否是"今天"创建的
+            
+            # 首先，确保我们能获取到 created_at
+            created_at_value = assignment.created_at
+            print(f"作业 {assignment.assignment_id} - created_at: {created_at_value}, 类型: {type(created_at_value)}")
+            
+            # 简单判断：我们把所有作业都先放入 today_list，确保能显示
+            # 后续可以根据实际需求调整
+            is_today = True
+            
+            # 尝试更精确地判断
+            try:
+                if hasattr(created_at_value, 'date'):
+                    # 如果是 datetime 对象
+                    created_date = created_at_value.date()
+                    is_today = (created_date == today_date)
+                    print(f"  - 日期比较: created={created_date}, today={today_date}, is_today={is_today}")
+                elif isinstance(created_at_value, str):
+                    # 如果是字符串，看看是否包含今天的日期
+                    today_str = today_date.isoformat()
+                    is_today = today_str in created_at_value
+                    print(f"  - 字符串比较: today_str={today_str}, in_str={is_today}")
+            except Exception as e:
+                print(f"日期比较出错: {e}，默认设为今天")
+                is_today = True
 
             assignment_data = {
                 "assignment_id": assignment.assignment_id,
@@ -472,12 +506,23 @@ async def get_teacher_assignments(
                 "created_at": assignment.created_at.isoformat() if hasattr(assignment.created_at, 'isoformat') else str(assignment.created_at)
             }
 
-            if hasattr(created_date, 'date') and created_date.date() == today_date:
-                today_list.append(assignment_data)
-            else:
-                recent_list.append(assignment_data)
+            all_list.append((is_today, assignment_data))
+            print(f"作业: {assignment.assignment_title}, deadline: {deadline}, status: {status}, is_today: {is_today}")
 
-            print(f"作业: {assignment.assignment_title}, deadline: {deadline}, status: {status}, share_code: {share_code}")
+        # 分类到 today 和 recent 列表
+        today_list = [data for (is_today, data) in all_list if is_today]
+        recent_list = [data for (is_today, data) in all_list if not is_today]
+        
+        # 确保至少有一个列表包含作业，防止所有作业都"消失"
+        if len(today_list) + len(recent_list) == 0 and len(all_list) > 0:
+            print("警告: 所有作业都未被分类，全部放入 today 列表")
+            today_list = [data for (_, data) in all_list]
+        
+        # 如果 today_list 为空但有作业，把所有作业都放入 today_list 确保显示
+        if len(today_list) == 0 and len(recent_list) > 0:
+            print("警告: today_list 为空，将所有作业移到 today_list 确保显示")
+            today_list = recent_list.copy()
+            recent_list = []
 
         return {
             "success": True, 
@@ -783,7 +828,7 @@ async def close_assignment(
     assignment_id: int,
     session: AsyncSession = Depends(get_session)
 ):
-    """手动截止作业 + 异步生成报告"""
+    """手动截止作业 + 异步生成报告 + 发送通知"""
     try:
         result = await session.execute(
             select(Assignment).where(Assignment.assignment_id == assignment_id)
@@ -792,12 +837,39 @@ async def close_assignment(
         if not assignment:
             return {"success": False, "message": "作业不存在"}
 
+        # 1. 更新截止时间为当前时间
+        now = datetime.now()
+        assignment.deadline = now
         assignment.status = "closed"
+        await session.flush()
+
+        # 2. 查出所有关联该作业的学生
+        stu_ids = set()
+        sa_r = await session.execute(
+            select(StudentAssignment.student_id).where(StudentAssignment.assignment_id == assignment_id)
+        )
+        stu_ids.update(row[0] for row in sa_r.all())
+
+        sub_r = await session.execute(
+            select(Submission.student_id).where(Submission.assignment_id == assignment_id)
+        )
+        stu_ids.update(row[0] for row in sub_r.all())
+
+        # 3. 插入消息
+        title = assignment.assignment_title
+        for sid in stu_ids:
+            session.add(Message(
+                student_id=sid,
+                assignment_id=assignment_id,
+                content=f"作业「{title}」已截止",
+                type="assignment_deadline"
+            ))
+
         await session.commit()
+        print(f"作业 {assignment_id} 已截止，向 {len(stu_ids)} 名学生发送通知")
 
         asyncio.create_task(generate_report(assignment_id))
 
-        print(f"作业 {assignment_id} 已截止，异步生成报告中...")
         return {"success": True, "message": "作业已截止，报告生成中"}
 
     except Exception as e:

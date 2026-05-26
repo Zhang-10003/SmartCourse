@@ -56,7 +56,7 @@
           <text class="time-label-text">剩余时间</text>
           <text class="time-countdown">{{ remainingTimeText }}</text>
         </view>
-        <view class="btn-deadline">
+        <view v-if="assignment.status === '进行中'" class="btn-deadline" @click="handleDeadlineClick">
           <text>立即截止</text>
         </view>
         <view class="btn-secondary">
@@ -495,6 +495,9 @@ export default {
         clearInterval(this.timer);
         this.timer = null;
       }
+    },
+    handleDeadlineClick() {
+      this.$emit('deadline-click');
     }
   },
   mounted() {

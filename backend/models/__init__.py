@@ -41,4 +41,5 @@ from .student_assignment import StudentAssignment
 from .student_answer import StudentAnswer
 from .knowledge_base import KnowledgeBase
 from .assignment_report import AssignmentReport
-__all__ = ['engine', 'AsyncSessionFactory', 'Base', 'User', 'Teacher', 'Student', 'Assignment', 'AssignmentShare', 'Question', 'Submission', 'StudentAssignment', 'StudentAnswer', 'KnowledgeBase', 'AssignmentReport']
+from .message import Message
+__all__ = ['engine', 'AsyncSessionFactory', 'Base', 'User', 'Teacher', 'Student', 'Assignment', 'AssignmentShare', 'Question', 'Submission', 'StudentAssignment', 'StudentAnswer', 'KnowledgeBase', 'AssignmentReport', 'Message']
