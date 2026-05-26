@@ -13,8 +13,8 @@
           <image class="avatar-img" src="/static/logo.png" mode="aspectFill"></image>
         </view>
         <view class="info-content">
-          <text class="user-name">张俊琛</text>
-          <text class="user-id">学号: 20260101</text>
+          <text class="user-name">{{ studentName || '未登录' }}</text>
+          <text class="user-id">学号: {{ studentNo || '' }}</text>
         </view>
       </view>
 
@@ -39,22 +39,52 @@
   </view>
 </template>
 
-<script setup>
-const handlePassword = () => {
-  uni.navigateTo({ url: '/pages/login/forget' });
-};
-
-const handleLogout = () => {
-  uni.showModal({
-    title: '提示',
-    content: '确定要退出当前账号吗？',
-    success: (res) => {
-      if (res.confirm) {
-        uni.removeStorageSync('userInfo');
-        uni.redirectTo({ url: '/pages/login/index' });
+<script>
+export default {
+  data() {
+    return {
+      studentName: '',
+      studentNo: ''
+    };
+  },
+  onLoad() {
+    this.loadUserInfo();
+  },
+  onShow() {
+    this.loadUserInfo();
+  },
+  methods: {
+    loadUserInfo() {
+      const userInfo = uni.getStorageSync('userInfo');
+      console.log('用户信息:', userInfo);
+      console.log('userInfo.student_name:', userInfo?.student_name);
+      console.log('userInfo.student_no:', userInfo?.student_no);
+      
+      if (userInfo) {
+        this.studentName = userInfo.student_name || userInfo.name || userInfo.username || '';
+        this.studentNo = userInfo.student_no || userInfo.user_no || '';
       }
+      console.log('设置后的 studentName:', this.studentName);
+      console.log('设置后的 studentNo:', this.studentNo);
+    },
+    
+    handlePassword() {
+      uni.navigateTo({ url: '/pages/login/forget' });
+    },
+
+    handleLogout() {
+      uni.showModal({
+        title: '提示',
+        content: '确定要退出当前账号吗？',
+        success: (res) => {
+          if (res.confirm) {
+            uni.removeStorageSync('userInfo');
+            uni.redirectTo({ url: '/pages/login/index' });
+          }
+        }
+      });
     }
-  });
+  }
 };
 </script>
 
@@ -64,7 +94,6 @@ const handleLogout = () => {
   min-height: 100vh;
 }
 
-/* 导航栏样式 */
 .custom-navbar {
   position: fixed;
   top: 0; left: 0; right: 0;
@@ -82,21 +111,18 @@ const handleLogout = () => {
   }
 }
 
-/* 主内容区域 */
 .main-content {
   padding-top: calc(var(--status-bar-height) + 44px);
 }
 
-/* 用户卡片：移除 margin-bottom 使其与下方内容对接 */
 .user-profile-card {
   background: #ffffff;
   padding: 30px 20px;
-  margin-bottom: 0; /* 彻底移除与下方的间隙 */
+  margin-bottom: 0;
   display: flex;
   align-items: center;
   width: 100%;
   box-sizing: border-box;
-  /* 增加底部细微分割线，区分头像区和功能区 */
   border-bottom: 1rpx solid #f8f8f8; 
 
   .avatar-box {
@@ -117,7 +143,6 @@ const handleLogout = () => {
   }
 }
 
-/* 菜单组：移除 margin 且去掉顶部边框，实现无缝连接 */
 .menu-group {
   background: #ffffff;
   margin: 0; 
@@ -133,7 +158,6 @@ const handleLogout = () => {
     background: #ffffff;
     transition: background 0.2s;
 
-    /* 内部按钮分割线 */
     &:not(:last-child) {
       border-bottom: 1rpx solid #f8f8f8;
     }
