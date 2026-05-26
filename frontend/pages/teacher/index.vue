@@ -760,6 +760,7 @@ const submittedStudents = ref([]);
 const unsubmittedStudents = ref([]);
 const detailAssignmentId = ref(null);
 let statsTimer = null;
+let eventSource = null;
 
 const selectedPortId = ref(null);
 const connections = ref([]);
@@ -1122,6 +1123,7 @@ onUnmounted(() => {
     clearTimeout(deadlineTimerRef.value);
     deadlineTimerRef.value = null;
   }
+  if (eventSource) { eventSource.close(); eventSource = null; }
   stopStatsPolling();
 });
 
@@ -1769,7 +1771,36 @@ const openAssignmentDetail = (title, deadline, status, participants, shareCode, 
 
   detailAssignmentId.value = assignmentId || null;
   fetchAssignmentStats();
-  if (status === '进行中') startStatsPolling();
+
+  // 建立 SSE 连接，批改完成后自动刷新
+  stopStatsPolling();
+  if (eventSource) { eventSource.close(); eventSource = null; }
+  if (assignmentId && status === '进行中') {
+    if (typeof EventSource === 'undefined') {
+      startStatsPolling();
+      return;
+    }
+    const source = new EventSource(CONFIG.baseUrl + `/api/assignments/${assignmentId}/events`);
+    eventSource = source;
+    source.onopen = () => {
+      if (eventSource !== source || currentView.value !== 'detail') return;
+      stopStatsPolling();
+      fetchAssignmentStats();
+    };
+    source.onmessage = () => {
+      if (eventSource !== source || currentView.value !== 'detail') return;
+      stopStatsPolling();
+      fetchAssignmentStats();
+    };
+    source.onerror = () => {
+      if (eventSource !== source) return;
+      source.close();
+      eventSource = null;
+      if (currentView.value === 'detail' && detailAssignmentId.value === assignmentId) {
+        startStatsPolling();
+      }
+    };
+  }
 };
 
 async function fetchAssignmentStats() {
@@ -1802,7 +1833,8 @@ async function fetchAssignmentStats() {
       assignmentStats.scoreDistribution = d.score_distribution || { excellent: 0, good: 0, pass: 0, fail: 0 };
       submittedStudents.value = (d.submitted_students || []).map(s => ({
         name: s.name, className: s.className || '', id: s.id,
-        submitTime: s.submit_time || '', score: s.score || '0'
+        submitTime: s.submit_time || '', score: s.score || '0',
+        status: s.status || '已提交'
       }));
       unsubmittedStudents.value = (d.unsubmitted_students || []).map(s => ({
         name: s.name, className: s.className || '', id: s.id
@@ -1826,6 +1858,7 @@ function stopStatsPolling() {
 }
 
 const closeDetailView = () => {
+  if (eventSource) { eventSource.close(); eventSource = null; }
   stopStatsPolling();
   currentView.value = 'list';
 };

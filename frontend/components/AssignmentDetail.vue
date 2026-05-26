@@ -108,7 +108,23 @@
       <view class="chart-card pie-card">
         <h3 class="chart-title">成绩分布概览</h3>
         <view class="pie-container">
-          <view class="css-donut-chart" :style="donutStyle"></view>
+          <view class="pie-svg-wrapper">
+            <svg width="160" height="160" viewBox="0 0 160 160">
+              <path
+                v-for="(seg, idx) in pieSegments"
+                :key="idx"
+                :d="seg.path"
+                :fill="seg.color"
+                class="pie-slice"
+                :class="{ 'pie-hover': hoveredSegment === idx }"
+                @mouseenter="hoveredSegment = idx"
+                @mouseleave="hoveredSegment = null"
+              />
+            </svg>
+            <view v-if="hoveredSegment !== null" class="pie-tooltip">
+              {{ pieSegments[hoveredSegment].label }}: {{ pieSegments[hoveredSegment].percent }}%
+            </view>
+          </view>
           <view class="chart-legends">
             <view class="legend-item">
               <view class="legend-dot legend-dot-indigo"></view>
@@ -342,7 +358,8 @@ export default {
       startX: 0,
       scrollLeftStart: 0,
       remainingSeconds: 0,
-      timer: null
+      timer: null,
+      hoveredSegment: null
     };
   },
   computed: {
@@ -373,21 +390,41 @@ export default {
         return `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`;
       }
     },
-    donutStyle() {
+    pieSegments() {
       const sd = this.stats.scoreDistribution || { excellent: 0, good: 0, pass: 0, fail: 0 };
       const total = sd.excellent + sd.good + sd.pass + sd.fail;
-      if (total === 0) {
-        return { background: 'conic-gradient(#f1f5f9 0% 100%)' };
+      const labels = ['优秀', '良好', '及格', '待加强'];
+      const colors = ['#4f46e5', '#22c55e', '#f59e0b', '#ef4444'];
+      const values = [sd.excellent, sd.good, sd.pass, sd.fail];
+
+      const segments = [];
+      let currentAngle = -90;
+      const cx = 80, cy = 80, r = 75;
+
+      for (let i = 0; i < values.length; i++) {
+        const angle = total > 0 ? (values[i] / total) * 360 : 0;
+        if (angle === 0) {
+          segments.push({ path: '', color: colors[i], label: labels[i], percent: 0 });
+          continue;
+        }
+        if (angle >= 360) {
+          const path = `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r} Z`;
+          segments.push({ path, color: colors[i], label: labels[i], percent: 100 });
+          continue;
+        }
+        const startRad = (currentAngle * Math.PI) / 180;
+        const endRad = ((currentAngle + angle) * Math.PI) / 180;
+        const x1 = cx + r * Math.cos(startRad);
+        const y1 = cy + r * Math.sin(startRad);
+        const x2 = cx + r * Math.cos(endRad);
+        const y2 = cy + r * Math.sin(endRad);
+        const large = angle > 180 ? 1 : 0;
+        const path = `M ${cx} ${cy} L ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} Z`;
+        segments.push({ path, color: colors[i], label: labels[i], percent: Math.round((values[i] / total) * 100) });
+        currentAngle += angle;
       }
-      const e = sd.excellent / total * 100;
-      const g = sd.good / total * 100;
-      const p = sd.pass / total * 100;
-      const segs = [];
-      if (e > 0) segs.push(`#4f46e5 0% ${e}%`);
-      if (g > 0) segs.push(`#22c55e ${e}% ${e + g}%`);
-      if (p > 0) segs.push(`#f59e0b ${e + g}% ${e + g + p}%`);
-      if (e + g + p < 100) segs.push(`#ef4444 ${e + g + p}% 100%`);
-      return { background: `conic-gradient(${segs.join(', ')})` };
+
+      return segments;
     }
   },
   methods: {
@@ -879,29 +916,36 @@ export default {
   height: 240px;
 }
 
-.css-donut-chart {
+.pie-svg-wrapper {
+  position: relative;
   width: 160px;
   height: 160px;
-  border-radius: 50%;
-  background: conic-gradient(
-    #4f46e5 0% 45%, 
-    #818cf8 45% 75%, 
-    #c7d2fe 75% 90%, 
-    #f1f5f9 90% 100%
-  );
-  position: relative;
   margin-bottom: 24px;
 }
 
-.css-donut-chart::before {
-  content: '';
+.pie-slice {
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.pie-slice:hover,
+.pie-hover {
+  opacity: 0.8;
+}
+
+.pie-tooltip {
   position: absolute;
-  top: 25px;
-  left: 25px;
-  width: 110px;
-  height: 110px;
-  background: #fff;
-  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .chart-legends {

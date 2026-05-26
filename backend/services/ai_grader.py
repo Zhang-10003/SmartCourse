@@ -198,45 +198,37 @@ async def grade_submission(submission_id: int, total_score: int = 0):
 
             llm_result = await asyncio.to_thread(call_llm, prompt)
             print(f"[AI_GRADER] 7. LLM 返回: {str(llm_result)[:200]}", flush=True)
-            if not llm_result:
-                print(f"[AI_GRADER] ❌ LLM 批改无返回，标记为已批改", flush=True)
-                # 即使LLM失败，也标记为已批改
-                await session.execute(
-                    update(Submission)
-                    .where(Submission.submission_id == submission_id)
-                    .values(status="graded", total_score=total_score)
-                )
-                await session.commit()
-                return
+            if llm_result:
+                results = llm_result.get("results", [])
+                summary = llm_result.get("summary", {})
+                print(f"[AI_GRADER] 8. 解析到 {len(results)} 条批改结果", flush=True)
 
-            results = llm_result.get("results", [])
-            summary = llm_result.get("summary", {})
-            print(f"[AI_GRADER] 8. 解析到 {len(results)} 条批改结果", flush=True)
+                for r in results:
+                    qid = r.get("question_id")
+                    fb = r.get("feedback", "")
+                    sa = answer_map.get(qid)
+                    if sa:
+                        await session.execute(
+                            update(StudentAnswer)
+                            .where(StudentAnswer.answer_id == sa.answer_id)
+                            .values(feedback=fb)
+                        )
 
-            for r in results:
-                qid = r.get("question_id")
-                fb = r.get("feedback", "")
-                sa = answer_map.get(qid)
-                if sa:
+                error_summary = summary.get("error_summary", "")
+                study_suggestions = summary.get("study_suggestions", "")
+                combined_feedback = ""
+                if error_summary:
+                    combined_feedback += f"【错误总结】{error_summary}\n"
+                if study_suggestions:
+                    combined_feedback += f"【学习建议】{study_suggestions}"
+                if combined_feedback:
                     await session.execute(
-                        update(StudentAnswer)
-                        .where(StudentAnswer.answer_id == sa.answer_id)
-                        .values(feedback=fb)
+                        update(Submission)
+                        .where(Submission.submission_id == submission_id)
+                        .values(feedback=combined_feedback)
                     )
-
-            error_summary = summary.get("error_summary", "")
-            study_suggestions = summary.get("study_suggestions", "")
-            combined_feedback = ""
-            if error_summary:
-                combined_feedback += f"【错误总结】{error_summary}\n"
-            if study_suggestions:
-                combined_feedback += f"【学习建议】{study_suggestions}"
-            if combined_feedback:
-                await session.execute(
-                    update(Submission)
-                    .where(Submission.submission_id == submission_id)
-                    .values(feedback=combined_feedback)
-                )
+            else:
+                print(f"[AI_GRADER] ❌ LLM 批改无返回，使用基础评分完成批改", flush=True)
 
             # 更新状态为已批改，并更新分数
             await session.execute(
@@ -247,6 +239,13 @@ async def grade_submission(submission_id: int, total_score: int = 0):
 
             await session.commit()
             print(f"[AI_GRADER] ✅ 批改完成, 数据已写入 DB", flush=True)
+
+            # SSE 推送批改完成事件
+            try:
+                from utils.sse_manager import sse_manager
+                await sse_manager.publish(submission.assignment_id, {"type": "grading_done"})
+            except Exception as sse_err:
+                print(f"[AI_GRADER] SSE 推送失败: {sse_err}", flush=True)
 
     except Exception as e:
         print(f"[AI_GRADER] ❌ 异常: {e}", flush=True)

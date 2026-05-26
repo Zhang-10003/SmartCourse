@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from models import Assignment, Question, AssignmentShare, User, Student, StudentAssignment, Submission, StudentAnswer, AssignmentReport
@@ -21,6 +22,7 @@ import asyncio
 from typing import Dict, Any
 from services.ai_grader import grade_submission
 from services.report_generator import generate_report
+from utils.sse_manager import sse_manager
 
 router = APIRouter(prefix="/api", tags=["assignments"])
 
@@ -1003,3 +1005,21 @@ async def get_assignment_stats(
         print(f"获取统计数据失败: {e}")
         traceback.print_exc()
         return {"success": False, "message": f"获取统计数据失败: {str(e)}"}
+
+
+@router.get("/assignments/{assignment_id}/events")
+async def assignment_events(assignment_id: int):
+    """SSE 端点：批改完成时推送事件"""
+    q = sse_manager.subscribe(assignment_id)
+
+    async def event_stream():
+        try:
+            while True:
+                data = await q.get()
+                yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            sse_manager.unsubscribe(assignment_id, q)
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
