@@ -4,6 +4,7 @@ import logging
 from openai import OpenAI
 from sqlalchemy import select, update
 from models import Submission, StudentAnswer, Question
+from models.question import VALID_QUESTION_TYPES
 from models import AsyncSessionFactory
 from setting import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME
 
@@ -155,7 +156,10 @@ async def grade_submission(submission_id: int):
             print(f"[AI_GRADER] 2. 查到 submission, assignment_id={submission.assignment_id}", flush=True)
 
             q_result = await session.execute(
-                select(Question).where(Question.assignment_id == submission.assignment_id)
+                select(Question).where(
+                    Question.assignment_id == submission.assignment_id,
+                    Question.type.in_(VALID_QUESTION_TYPES)
+                )
             )
             questions = q_result.scalars().all()
             print(f"[AI_GRADER] 3. 查到 {len(questions)} 道题", flush=True)

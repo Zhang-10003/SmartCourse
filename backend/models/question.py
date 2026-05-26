@@ -4,6 +4,17 @@ from sqlalchemy.orm import relationship
 from . import Base
 
 
+VALID_QUESTION_TYPES = (
+    "choice",
+    "multiple_choice",
+    "true_false",
+    "code_fill",
+    "fill_blank",
+    "matching",
+    "short_answer",
+)
+
+
 class Question(Base):
     """题目模型"""
     __tablename__ = "questions"

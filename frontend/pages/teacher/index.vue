@@ -135,7 +135,7 @@
               ></view>
               <view v-if="!node.isExpanded" class="mini-view p-5 h-full flex flex-col justify-between">
                 <view class="flex justify-between items-center">
-                  <text class="text-[10px] font-bold text-slate-400 tracking-widest uppercase">NODE_{{ index + 1 }}</text>
+                  <text class="text-[10px] font-bold text-slate-400 tracking-widest uppercase">{{ node.type === '教材/课件' ? '📁 教材' : 'Q' + getQuestionIndex(index) }}</text>
                   <view 
                     @click.stop="removeNode(index)" 
                     :class="[node.color, 'pointer-events-auto']" 
@@ -1262,6 +1262,17 @@ const shrinkNode = (index) => {
   });
 };
 
+const getQuestionIndex = (nodeIndex) => {
+  let count = 0;
+  for (let i = 0; i < nodes.value.length; i++) {
+    if (nodes.value[i].type !== '教材/课件') {
+      count++;
+      if (i === nodeIndex) return count;
+    }
+  }
+  return 0;
+};
+
 const removeNode = (index) => {
   isUpdating.value = true;
   
@@ -1456,11 +1467,17 @@ const openShareModal = () => {
     '匹配题': 'matching',
     '简答题': 'short_answer'
   };
+
+  const questionNodes = nodes.value.filter((node) => typeMapping[node.type]);
+  if (questionNodes.length === 0) {
+    showToast('请先添加题目', 'error');
+    return;
+  }
   
-  const questions = nodes.value.map((node, index) => {
+  const questions = questionNodes.map((node, index) => {
     const data = node.data;
     const question = {
-      type: typeMapping[node.type] || node.type.toLowerCase().replace(/\s+/g, '_'),
+      type: typeMapping[node.type],
       question_title: data.title || data.question_title || '',
       options: null,
       content: null,

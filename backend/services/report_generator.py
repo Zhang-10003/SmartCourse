@@ -3,6 +3,7 @@ import asyncio
 from openai import OpenAI
 from sqlalchemy import select, insert
 from models import Question, Submission, StudentAnswer, AssignmentReport
+from models.question import VALID_QUESTION_TYPES
 from models import AsyncSessionFactory
 from setting import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME
 
@@ -63,7 +64,10 @@ async def generate_report(assignment_id: int):
         async with AsyncSessionFactory() as session:
             # 查所有题目
             q_result = await session.execute(
-                select(Question).where(Question.assignment_id == assignment_id).order_by(Question.sort_order)
+                select(Question).where(
+                    Question.assignment_id == assignment_id,
+                    Question.type.in_(VALID_QUESTION_TYPES)
+                ).order_by(Question.sort_order)
             )
             questions = q_result.scalars().all()
             print(f"[REPORT_GEN] 查到 {len(questions)} 道题", flush=True)
@@ -107,8 +111,11 @@ async def generate_report(assignment_id: int):
 
             # 按题目组织学生答案
             answers_by_q = {}
+            valid_question_ids = {q.question_id for q in questions}
             for a in all_answers:
                 qid = a.question_id
+                if qid not in valid_question_ids:
+                    continue
                 if qid not in answers_by_q:
                     answers_by_q[qid] = []
                 user_val = json.loads(a.answer) if a.answer else ""

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from models import Assignment, Question, AssignmentShare, User, Student, StudentAssignment, Submission, StudentAnswer, AssignmentReport
+from models.question import VALID_QUESTION_TYPES
 from dependencies import get_session
 from schemas.assignment import (
     AssignmentCreate, 
@@ -63,10 +64,14 @@ async def create_question(
 ):
     try:
         print("接收到的题目数据:", question_data)
+
+        question_type = question_data.get('type', '')
+        if question_type not in VALID_QUESTION_TYPES:
+            return {"success": False, "message": "不支持的题型"}
         
         new_question = Question(
             assignment_id=question_data.get('assignment_id', 0),
-            type=question_data.get('type', ''),
+            type=question_type,
             question_title=question_data.get('question_title', ''),
             options=question_data.get('options'),
             content=question_data.get('content'),
@@ -163,9 +168,16 @@ async def get_questions(
 ):
     try:
         if assignment_id:
-            result = await session.execute(select(Question).where(Question.assignment_id == assignment_id))
+            result = await session.execute(
+                select(Question).where(
+                    Question.assignment_id == assignment_id,
+                    Question.type.in_(VALID_QUESTION_TYPES)
+                )
+            )
         else:
-            result = await session.execute(select(Question))
+            result = await session.execute(
+                select(Question).where(Question.type.in_(VALID_QUESTION_TYPES))
+            )
         
         questions = result.scalars().all()
         
@@ -211,7 +223,12 @@ async def get_share_by_code(
         assignment = assignment_result.scalar_one_or_none()
         
         # 获取题目列表
-        questions_result = await session.execute(select(Question).where(Question.assignment_id == share.assignment_id).order_by(Question.sort_order))
+        questions_result = await session.execute(
+            select(Question).where(
+                Question.assignment_id == share.assignment_id,
+                Question.type.in_(VALID_QUESTION_TYPES)
+            ).order_by(Question.sort_order)
+        )
         questions = questions_result.scalars().all()
         
         question_list = []
@@ -306,7 +323,10 @@ async def student_access_share(
         
         # 4. 获取题目列表
         questions_result = await session.execute(
-            select(Question).where(Question.assignment_id == assignment_id).order_by(Question.sort_order)
+            select(Question).where(
+                Question.assignment_id == assignment_id,
+                Question.type.in_(VALID_QUESTION_TYPES)
+            ).order_by(Question.sort_order)
         )
         questions = questions_result.scalars().all()
         
@@ -578,7 +598,10 @@ async def submit_assignment(
 
         # 2. 获取所有题目
         questions_result = await session.execute(
-            select(Question).where(Question.assignment_id == req.assignment_id)
+            select(Question).where(
+                Question.assignment_id == req.assignment_id,
+                Question.type.in_(VALID_QUESTION_TYPES)
+            )
         )
         questions = {q.question_id: q for q in questions_result.scalars().all()}
 
@@ -833,13 +856,19 @@ async def get_assignment_stats(
         # 3. 总分（该作业所有题目的 score 之和）
         score_result = await session.execute(
             select(func.coalesce(func.sum(Question.score), 0))
-            .where(Question.assignment_id == assignment_id)
+            .where(
+                Question.assignment_id == assignment_id,
+                Question.type.in_(VALID_QUESTION_TYPES)
+            )
         )
         total_score = float(score_result.scalar() or 0)
 
         # 4. 每题信息（用于柱状图）
         q_result = await session.execute(
-            select(Question).where(Question.assignment_id == assignment_id).order_by(Question.sort_order)
+            select(Question).where(
+                Question.assignment_id == assignment_id,
+                Question.type.in_(VALID_QUESTION_TYPES)
+            ).order_by(Question.sort_order)
         )
         questions = q_result.scalars().all()
 
