@@ -1898,11 +1898,12 @@ async function fetchAssignmentStats() {
         color: q.color
       }));
       assignmentStats.scoreDistribution = d.score_distribution || { excellent: 0, good: 0, pass: 0, fail: 0 };
-      submittedStudents.value = (d.submitted_students || []).map(s => ({
-        name: s.name, className: s.className || '', id: s.id,
-        submitTime: s.submit_time || '', score: s.score || '0',
-        status: s.status || '已提交'
-      }));
+        submittedStudents.value = (d.submitted_students || []).map(s => ({
+          name: s.name, className: s.className || '', id: s.id,
+          submitTime: s.submit_time || '', score: s.score || '0',
+          status: s.status || '已提交',
+          total_score: s.total_score || assignmentStats.totalScore || 100
+        }));
       unsubmittedStudents.value = (d.unsubmitted_students || []).map(s => ({
         name: s.name, className: s.className || '', id: s.id
       }));

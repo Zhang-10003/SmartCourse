@@ -11,7 +11,14 @@
     
     <scroll-view class="main-content" scroll-y>
       <view class="phone-canvas">
-        <view class="feedback-list">
+        <view v-if="viewState === 'loading' || viewState === 'generating'" class="state-panel">
+          <text class="state-text">{{ stateMessage }}</text>
+        </view>
+        <view v-else-if="viewState === 'empty' || viewState === 'error'" class="state-panel">
+          <text class="state-text">{{ stateMessage }}</text>
+          <text v-if="viewState === 'error'" class="retry-link" @click="loadReport">重新加载</text>
+        </view>
+        <view v-else class="feedback-list">
           <view 
             v-for="(section, index) in reportData.sections" 
             :key="index" 
@@ -30,24 +37,122 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { ref, onUnmounted } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
+import request from '@/utils/request.js';
 
 const reportData = ref({
   title: '学情反馈报告',
-  sections: [
-    {
+  sections: []
+});
+
+const viewState = ref('loading');
+const stateMessage = ref('报告加载中...');
+let reportTimer = null;
+let reportRequestId = 0;
+let assignmentId = null;
+let studentId = null;
+
+const stopReportPolling = () => {
+  if (reportTimer) {
+    clearTimeout(reportTimer);
+    reportTimer = null;
+  }
+};
+
+const buildSections = (report) => {
+  const sections = [];
+  if (report.error_summary) {
+    sections.push({
       type: 'error',
       title: '错误总结',
       color: '#ef4444',
-      content: '本次作业的核心问题在于条件循环语句的概念混淆，具体表现为逻辑上的死循环以及临界点拦截失效导致的数组越界隐患，这些问题直接暴露了在编写边界逻辑时缺乏严谨的数据自增与极限值校验意识。'
-    },
-    {
+      content: report.error_summary
+    });
+  }
+  if (report.study_suggestions) {
+    sections.push({
       type: 'suggest',
       title: '学习建议',
       color: '#10b981',
-      content: '后续应将重心放在重温循环控制结构的基础例题上，通过模拟数据盲推来培养自检习惯，并结合针对性的边界值专项微练，在实际动手调试中快速攻克并理清代码的逻辑临界点。'
+      content: report.study_suggestions
+    });
+  }
+  return sections;
+};
+
+const fetchReport = async (requestId) => {
+  if (requestId !== reportRequestId || !assignmentId || !studentId) return;
+
+  try {
+    const response = await request.get(`/api/submit/${assignmentId}/${studentId}`);
+    if (requestId !== reportRequestId) return;
+
+    if (!response.success || !response.data) {
+      stopReportPolling();
+      viewState.value = 'error';
+      stateMessage.value = response.message || '未找到本次作业的提交记录';
+      return;
     }
-  ]
+
+    if (response.data.status === 'grading') {
+      viewState.value = 'generating';
+      stateMessage.value = '报告生成中...';
+      stopReportPolling();
+      reportTimer = setTimeout(() => fetchReport(requestId), 1500);
+      return;
+    }
+
+    stopReportPolling();
+    const sections = buildSections(response.data.report || {});
+    if (sections.length === 0) {
+      viewState.value = 'empty';
+      stateMessage.value = '本次批改已完成，暂无 AI 反馈内容';
+      return;
+    }
+
+    reportData.value.sections = sections;
+    viewState.value = 'ready';
+  } catch (error) {
+    if (requestId !== reportRequestId) return;
+    console.error('获取个人学情反馈报告失败:', error);
+    stopReportPolling();
+    viewState.value = 'error';
+    stateMessage.value = '获取报告失败，请稍后重试';
+  }
+};
+
+const loadReport = () => {
+  stopReportPolling();
+  reportRequestId++;
+  reportData.value.sections = [];
+  viewState.value = 'loading';
+  stateMessage.value = '报告加载中...';
+  fetchReport(reportRequestId);
+};
+
+onLoad((options) => {
+  assignmentId = Number(options.id);
+  const userInfo = uni.getStorageSync('userInfo');
+
+  if (!assignmentId) {
+    viewState.value = 'error';
+    stateMessage.value = '作业信息无效';
+    return;
+  }
+  if (!userInfo || !userInfo.user_id) {
+    viewState.value = 'error';
+    stateMessage.value = '请先登录后查看报告';
+    return;
+  }
+
+  studentId = userInfo.user_id;
+  loadReport();
+});
+
+onUnmounted(() => {
+  reportRequestId++;
+  stopReportPolling();
 });
 
 const goBack = () => uni.navigateBack();
@@ -92,6 +197,25 @@ const goBack = () => uni.navigateBack();
   padding: 32rpx 24rpx;
   box-shadow: 0 20px 50px rgba(148, 163, 184, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.6);
   border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.state-panel {
+  min-height: 360rpx;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 32rpx;
+}
+
+.state-text {
+  font-size: 30rpx;
+  color: #64748b;
+}
+
+.retry-link {
+  font-size: 28rpx;
+  color: #1677ff;
 }
 
 .feedback-list {

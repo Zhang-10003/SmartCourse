@@ -428,6 +428,24 @@ export default {
     }
   },
   methods: {
+    getGradePercentage(student) {
+      const score = parseFloat(student.score) || 0;
+      const totalScore = parseFloat(student.total_score) || 100;
+      if (totalScore === 0) return 0;
+      return score / totalScore;
+    },
+    getGradeText(percentage) {
+      if (percentage >= 0.9) return '优秀';
+      if (percentage >= 0.75) return '良好';
+      if (percentage >= 0.6) return '及格';
+      return '待加强';
+    },
+    getGradeColor(percentage) {
+      if (percentage >= 0.9) return '#22c55e';
+      if (percentage >= 0.75) return '#6366f1';
+      if (percentage >= 0.6) return '#f59e0b';
+      return '#ef4444';
+    },
     close() {
       this.$emit('close');
     },
@@ -1276,10 +1294,25 @@ export default {
   text-align: center;
 }
 
+.student-score-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
 .score-text {
   font-weight: 700;
   color: #1e293b;
   font-size: 16px;
+}
+
+.grade-text {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f8fafc;
 }
 
 .action-cell {

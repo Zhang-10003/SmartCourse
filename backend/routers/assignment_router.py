@@ -715,6 +715,25 @@ async def submit_assignment(
         return {"success": False, "message": f"提交失败: {str(e)}"}
 
 
+def parse_submission_report(feedback: str | None) -> dict[str, str]:
+    """将提交记录中的个人反馈解析为学生报告卡片数据。"""
+    feedback_text = (feedback or "").strip()
+    if not feedback_text:
+        return {"error_summary": "", "study_suggestions": ""}
+
+    error_marker = "【错误总结】"
+    suggestion_marker = "【学习建议】"
+    if error_marker in feedback_text and suggestion_marker in feedback_text:
+        error_text = feedback_text.split(error_marker, 1)[1].split(suggestion_marker, 1)[0].strip()
+        suggestion_text = feedback_text.split(suggestion_marker, 1)[1].strip()
+        return {
+            "error_summary": error_text,
+            "study_suggestions": suggestion_text,
+        }
+
+    return {"error_summary": feedback_text, "study_suggestions": ""}
+
+
 @router.get("/submit/{assignment_id}/{student_id}", response_model=dict)
 async def get_submission(
     assignment_id: int,
@@ -737,14 +756,17 @@ async def get_submission(
             select(StudentAnswer).where(StudentAnswer.submission_id == submission.submission_id)
         )
         answers = ans_result.scalars().all()
+        report = parse_submission_report(submission.feedback)
 
         return {
             "success": True,
             "data": {
                 "submission_id": submission.submission_id,
                 "submit_time": submission.submit_time.isoformat() if hasattr(submission.submit_time, 'isoformat') else str(submission.submit_time),
+                "status": submission.status,
                 "total_score": float(submission.total_score) if submission.total_score else 0,
                 "feedback": submission.feedback or "",
+                "report": report,
                 "answers": [
                     {
                         "question_id": a.question_id,
@@ -762,6 +784,89 @@ async def get_submission(
         print(f"获取提交记录失败: {str(e)}")
         print(traceback.format_exc())
         return {"success": False, "message": f"获取提交记录失败: {str(e)}"}
+
+
+def sort_submissions_for_ranking(submissions: list[Submission]) -> list[Submission]:
+    """按教师端展示口径稳定排序：得分降序、提交时间升序、提交 ID 升序。"""
+    return sorted(
+        submissions,
+        key=lambda submission: (
+            -(float(submission.total_score) if submission.total_score is not None else 0),
+            submission.submit_time,
+            submission.submission_id,
+        ),
+    )
+
+
+@router.get("/assignments/{assignment_id}/rank/{student_id}", response_model=dict)
+async def get_student_rank(
+    assignment_id: int,
+    student_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """获取学生本人在指定作业的排行结果，不返回其他学生成绩。"""
+    try:
+        sub_result = await session.execute(
+            select(Submission).where(Submission.assignment_id == assignment_id)
+        )
+        submissions = sub_result.scalars().all()
+        own_submission = next(
+            (submission for submission in submissions if submission.student_id == student_id),
+            None,
+        )
+
+        if not own_submission:
+            return {"success": False, "status": "not_submitted", "message": "尚未提交该作业"}
+
+        if any(submission.status == "grading" for submission in submissions):
+            return {"success": False, "status": "grading", "message": "成绩生成中"}
+
+        ranked_submissions = sort_submissions_for_ranking(submissions)
+        rank = next(
+            index
+            for index, submission in enumerate(ranked_submissions, start=1)
+            if submission.submission_id == own_submission.submission_id
+        )
+
+        student_result = await session.execute(
+            select(Student).where(Student.user_id == student_id)
+        )
+        student = student_result.scalar_one_or_none()
+        user_result = await session.execute(
+            select(User).where(User.user_id == student_id)
+        )
+        user = user_result.scalar_one_or_none()
+        name = (
+            student.student_name
+            if student and student.student_name
+            else user.username
+            if user and user.username
+            else f"学生{student_id}"
+        )
+
+        submitted_count = len(ranked_submissions)
+        if submitted_count <= 1:
+            beat_percentage = 100
+        else:
+            beat_percentage = round(
+                (submitted_count - rank) / (submitted_count - 1) * 100
+            )
+
+        return {
+            "success": True,
+            "status": "ready",
+            "data": {
+                "name": name,
+                "score": float(own_submission.total_score)
+                if own_submission.total_score is not None
+                else 0,
+                "rank": rank,
+                "beat_percentage": beat_percentage,
+            },
+        }
+    except Exception as e:
+        print(f"获取学生排行失败: {e}")
+        return {"success": False, "status": "error", "message": f"获取排行失败: {str(e)}"}
 
 
 def grade_answer(q_type, user_ans, correct_ans, full_score):
@@ -1000,17 +1105,37 @@ async def get_assignment_stats(
 
         excellent_rate = f"{round(excellent / submitted_count * 100) if submitted_count else 0}%"
 
-        # 8. 已提交学生列表
+        # 8. 已提交学生列表（先按分数降序排序）
         submitted_students = []
         if sub_student_ids:
+            # 查询学生信息表
             stu_result = await session.execute(
                 select(Student).where(Student.user_id.in_(sub_student_ids))
             )
             student_map = {s.user_id: s for s in stu_result.scalars().all()}
 
-            for s in submissions:
+            # 查询用户表（备用）
+            user_result = await session.execute(
+                select(User).where(User.user_id.in_(sub_student_ids))
+            )
+            user_map = {u.user_id: u for u in user_result.scalars().all()}
+
+            # 与学生端个人排行保持相同的稳定排序规则
+            sorted_submissions = sort_submissions_for_ranking(submissions)
+
+            for s in sorted_submissions:
+                # 优先从 Student 表获取，然后从 User 表获取，最后用默认值
                 stu = student_map.get(s.student_id)
-                name = stu.student_name if stu else f"学生{s.student_id}"
+                user = user_map.get(s.student_id)
+
+                name = "未知学生"
+                if stu and stu.student_name:
+                    name = stu.student_name
+                elif user and user.username:
+                    name = user.username
+                else:
+                    name = f"学生{s.student_id}"
+
                 submit_time = s.submit_time.strftime("%m-%d %H:%M") if hasattr(s.submit_time, 'strftime') else str(s.submit_time)
                 
                 # 根据状态决定显示什么
@@ -1030,7 +1155,8 @@ async def get_assignment_stats(
                     "id": str(s.student_id),
                     "submit_time": submit_time,
                     "score": score_text,
-                    "status": status_text
+                    "status": status_text,
+                    "total_score": total_score  # 把总分也传过去，方便计算百分比
                 })
 
         # 9. 未提交学生列表（同样取并集）

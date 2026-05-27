@@ -12,3 +12,8 @@ frontend/node_modules/
 frontend/static/
 backend/check_users.py
 backend/environment.yml
+
+# Ignore ChromaDB vector database
+backend/core/rag/chroma_db/
+backend/assets/
+outputs

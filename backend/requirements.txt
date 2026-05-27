@@ -1,0 +1,17 @@
+fastapi==0.136.1
+uvicorn[standard]==0.46.0
+sqlalchemy==2.0.49
+aiomysql==0.3.2
+pydantic==2.13.4
+python-multipart==0.0.28
+openai==2.36.0
+httpx==0.28.1
+chromadb==1.5.9
+python-dotenv==1.2.2
+PyJWT==2.12.1
+PyMuPDF==1.27.2.3
+python-docx==1.2.0
+pytesseract==0.3.13
+pillow==12.2.0
+python-dateutil==2.9.0.post0
+PyMySQL==1.1.3
