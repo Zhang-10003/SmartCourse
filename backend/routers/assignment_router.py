@@ -21,7 +21,7 @@ import json
 import asyncio
 from typing import Dict, Any
 from services.ai_grader import grade_submission
-from services.report_generator import generate_report
+from services.report_generator import generate_report, get_report_generation_status, mark_report_generating
 from utils.sse_manager import sse_manager
 
 router = APIRouter(prefix="/api", tags=["assignments"])
@@ -868,6 +868,7 @@ async def close_assignment(
         await session.commit()
         print(f"作业 {assignment_id} 已截止，向 {len(stu_ids)} 名学生发送通知")
 
+        mark_report_generating(assignment_id)
         asyncio.create_task(generate_report(assignment_id))
 
         return {"success": True, "message": "作业已截止，报告生成中"}
@@ -885,12 +886,18 @@ async def get_assignment_report(
 ):
     """获取作业报告"""
     try:
+        generation_status = get_report_generation_status(assignment_id)
+        if generation_status == "generating":
+            return {"success": False, "status": "generating", "message": "报告生成中"}
+        if generation_status == "error":
+            return {"success": False, "status": "error", "message": "报告生成失败或暂无可分析数据"}
+
         result = await session.execute(
             select(AssignmentReport).where(AssignmentReport.assignment_id == assignment_id)
         )
         report = result.scalar_one_or_none()
         if not report:
-            return {"success": False, "message": "报告尚未生成"}
+            return {"success": False, "status": "generating", "message": "报告生成中"}
 
         return {
             "success": True,

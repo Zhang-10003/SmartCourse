@@ -385,36 +385,95 @@
 
     <!-- 学情分析报告弹窗 -->
     <view v-if="reportModal.show" class="fixed inset-0 z-30 flex items-center justify-center p-4">
-      <view @click="closeReportModal" class="absolute inset-0 bg-black/40 backdrop-blur-sm"></view>
-      <view class="bg-white rounded-2xl shadow-2xl relative" style="width: 520px; max-height: 80vh;">
-        <view class="flex items-center justify-between p-6 border-b border-slate-100">
-          <text class="text-lg font-bold text-slate-800">📊 学情分析</text>
-          <text class="text-slate-400 cursor-pointer text-xl leading-none" @click="closeReportModal">&times;</text>
+      <view @click="closeReportModal" class="absolute inset-0" style="background-color: rgba(15, 23, 42, 0.3); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);"></view>
+      <view class="relative" style="background: rgba(255, 255, 255, 0.95); border: 1px solid rgba(226, 232, 240, 0.8); border-radius: 32px; padding: 40px; width: 90vw; max-width: 1160px; box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.08);">
+        <button class="modal-close-btn absolute top-6 right-6 w-9 h-9 rounded-full border-0 bg-black/5 text-gray-500 cursor-pointer flex items-center justify-center text-2xl leading-none transition-all hover:bg-black/8 hover:text-gray-900" @click="closeReportModal">×</button>
+
+        <!-- 标题和分隔线 -->
+        <view class="mb-6">
+          <view class="text-2xl font-bold text-slate-900 mb-3" style="color: #3b82f6;">作业报告</view>
+          <view style="height: 4px; width: 120px; background-color: #3b82f6; border-radius: 2px;"></view>
         </view>
-        <view class="p-6 overflow-y-auto" style="max-height: calc(80vh - 80px);">
-          <view v-if="reportModal.loading" class="text-center py-10 text-slate-400">加载中...</view>
-          <view v-else>
-            <view class="mb-4 text-sm text-slate-500">
-              作业：<text class="font-medium text-slate-700">{{ reportModal.title }}</text>
+
+        <view v-if="reportModal.state === 'generating'" class="report-grid" style="display: grid; grid-template-columns: 1.1fr 0.9fr; grid-template-rows: 1fr; gap: 40px; text-align: left;">
+          <!-- 左侧面板加载状态 -->
+          <view class="panel-left flex flex-col h-full">
+            <view class="card-title text-lg font-semibold mb-6 flex items-center gap-2.5" style="color: #0f172a;">
+              <text class="title-icon inline-block w-4.5 h-4.5 rounded" style="background-color: #3b82f6; clip-path: polygon(0 100%, 30% 40%, 60% 70%, 100% 0, 100% 100%);"></text>
+              错误知识点分布
             </view>
-            <view class="mb-6 text-sm text-slate-500">
-              已提交 <text class="font-bold text-indigo-600">{{ reportModal.total_submitted }}</text>
-              / <text class="font-bold text-slate-700">{{ reportModal.total_students }}</text> 人
+            <view class="card-body flex-1 flex flex-col justify-between">
+              <text class="text-lg text-slate-500 py-2">LLM生成中...</text>
+
+              <!-- LLM 反馈文本框 -->
+              <view class="llm-panel mt-8" style="background: rgba(59, 130, 246, 0.03); border-left: 4px solid #3b82f6; padding: 20px; border-radius: 0 16px 16px 0;">
+                <view class="text-base mb-3 flex items-center gap-2" style="color: #3b82f6;">
+                  <text class="title-icon icon-robot inline-block w-3 h-3 rounded-full" style="border: 3px solid #3b82f6; background: transparent;"></text>
+                  LLM 智能化反馈总结
+                </view>
+                <text class="text-lg text-slate-500">LLM生成中...</text>
+              </view>
             </view>
-            <view v-if="reportModal.knowledge_points.length === 0" class="text-center py-10 text-slate-400">暂无报告数据</view>
-            <view v-for="kp in reportModal.knowledge_points" :key="kp.name" class="mb-5 pb-4 border-b border-slate-50 last:border-b-0 last:mb-0 last:pb-0">
-              <view class="flex items-center justify-between mb-2">
-                <text class="font-semibold text-slate-800">{{ kp.name }}</text>
-                <text :class="kp.error_rate > 0.5 ? 'text-red-500' : 'text-emerald-500'" class="font-bold text-sm">
-                  {{ (kp.error_rate * 100).toFixed(0) }}%
-                </text>
+          </view>
+
+          <!-- 右侧面板加载状态 -->
+          <view class="panel-right flex flex-col h-full">
+            <view class="card-title text-lg font-semibold mb-6 flex items-center gap-2.5" style="color: #0f172a;">
+              <text class="title-icon icon-lightbulb inline-block w-4.5 h-4.5" style="background-color: #3b82f6; clip-path: polygon(50% 0%, 80% 30%, 50% 100%, 20% 30%);"></text>
+              后续教学与强化建议
+            </view>
+            <text class="text-lg text-slate-500 py-2">LLM生成中...</text>
+          </view>
+        </view>
+        <view v-else-if="reportModal.state === 'error'" class="flex items-center justify-center py-20 text-slate-400">
+          <text>{{ reportModal.errorMessage || '报告生成失败，请稍后重试' }}</text>
+        </view>
+        <view v-else class="report-grid" style="display: grid; grid-template-columns: 1.1fr 0.9fr; grid-template-rows: 1fr; gap: 40px; text-align: left;">
+          <!-- 左侧面板 -->
+          <view class="panel-left flex flex-col h-full">
+            <view class="card-title text-lg font-semibold mb-6 flex items-center gap-2.5" style="color: #0f172a;">
+              <text class="title-icon inline-block w-4.5 h-4.5 rounded" style="background-color: #3b82f6; clip-path: polygon(0 100%, 30% 40%, 60% 70%, 100% 0, 100% 100%);"></text>
+              错误知识点分布
+            </view>
+            <view class="card-body flex-1 flex flex-col justify-between">
+              <view class="progress-group flex flex-col gap-5">
+                <view v-for="(item, index) in getKnowledgeDistribution()" :key="index" class="progress-item flex flex-col gap-2">
+                  <view class="progress-info flex justify-between text-sm font-medium" style="color: #0f172a;">
+                    <text>{{ item.title }}</text>
+                    <text :style="{ color: item.color }">{{ item.percentage }}%</text>
+                  </view>
+                  <view class="progress-track h-2 rounded" style="background: rgba(226, 232, 240, 0.8); overflow: hidden;">
+                    <view class="progress-bar h-full rounded transition-all duration-800" :style="{ width: item.percentage + '%', backgroundColor: item.color }"></view>
+                  </view>
+                </view>
               </view>
-              <view class="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
-                <view class="h-full rounded-full" :class="kp.error_rate > 0.5 ? 'bg-red-400' : 'bg-emerald-400'" :style="{ width: (kp.error_rate * 100) + '%' }"></view>
+
+              <view class="llm-panel mt-8" style="background: rgba(59, 130, 246, 0.03); border-left: 4px solid #3b82f6; padding: 20px; border-radius: 0 16px 16px 0;">
+                <view class="text-base mb-3 flex items-center gap-2" style="color: #3b82f6;">
+                  <text class="title-icon icon-robot inline-block w-3 h-3 rounded-full" style="border: 3px solid #3b82f6; background: transparent;"></text>
+                  LLM 智能化反馈总结
+                </view>
+                <view class="llm-list list-none p-0 m-0 flex flex-col gap-3 text-sm leading-relaxed" style="color: #475569;">
+                  <view v-if="reportModal.feedback_summary">
+                    <text style="color: #0f172a; font-weight: bold;">整体总结：</text>{{ reportModal.feedback_summary }}
+                  </view>
+                </view>
               </view>
-              <view v-for="mt in kp.mistake_types" :key="mt.description" class="flex justify-between items-center py-1 text-sm">
-                <text class="text-slate-600">• {{ mt.description }}</text>
-                <text class="text-slate-400 text-xs">{{ mt.count }}人 ({{ (mt.percent * 100).toFixed(0) }}%)</text>
+            </view>
+          </view>
+
+          <!-- 右侧面板 -->
+          <view class="panel-right flex flex-col h-full">
+            <view class="card-title text-lg font-semibold mb-6 flex items-center gap-2.5" style="color: #0f172a;">
+              <text class="title-icon icon-lightbulb inline-block w-4.5 h-4.5" style="background-color: #3b82f6; clip-path: polygon(50% 0%, 80% 30%, 50% 100%, 20% 30%);"></text>
+              后续教学与强化建议
+            </view>
+            <view class="card-body flex-1 flex flex-col justify-between">
+              <view class="advice-stack flex flex-col gap-4 h-full">
+                <view v-for="(advice, index) in reportModal.teaching_advice" :key="index" class="advice-item bg-white border border-gray-200 p-5 rounded-xl flex-1 flex flex-col justify-center">
+                  <view class="text-base font-semibold mb-2" :style="{ color: getAdviceColor(index) }">{{ advice.keyword }}</view>
+                  <text class="text-sm leading-relaxed" style="color: #475569;">{{ advice.text }}</text>
+                </view>
               </view>
             </view>
           </view>
@@ -823,14 +882,17 @@ const loadingState = reactive({
 
 const reportModal = reactive({
   show: false,
-  loading: false,
+  state: 'generating',
+  errorMessage: '',
   title: '',
-  total_submitted: 0,
-  total_students: 0,
-  knowledge_points: []
+  error_points: [],
+  feedback_summary: '',
+  teaching_advice: []
 });
 
 const deadlineTimerRef = ref(null);
+let reportPollTimer = null;
+let reportRequestId = 0;
 
 // 作业列表数据
 const assignmentList = reactive({
@@ -1127,6 +1189,8 @@ onUnmounted(() => {
   }
   if (eventSource) { eventSource.close(); eventSource = null; }
   stopStatsPolling();
+  stopReportPolling();
+  reportRequestId++;
 });
 
 const onDragStart = (e, item) => {
@@ -1866,33 +1930,88 @@ const closeDetailView = () => {
   currentView.value = 'list';
 };
 
-const handleReportClick = async (assignment) => {
-  reportModal.show = true;
-  reportModal.loading = true;
-  reportModal.title = assignment.title;
+const clearReportContent = () => {
+  reportModal.error_points = [];
+  reportModal.feedback_summary = '';
+  reportModal.teaching_advice = [];
+};
+
+const stopReportPolling = () => {
+  if (reportPollTimer) {
+    clearTimeout(reportPollTimer);
+    reportPollTimer = null;
+  }
+};
+
+const fetchReportUntilReady = async (assignmentId, requestId) => {
+  if (!reportModal.show || requestId !== reportRequestId) return;
+
   try {
-    const res = await fetch(CONFIG.baseUrl + `/api/assignments/${assignment.assignment_id}/report`);
+    const res = await fetch(CONFIG.baseUrl + `/api/assignments/${assignmentId}/report`);
     const data = await res.json();
+    if (!reportModal.show || requestId !== reportRequestId) return;
+
     if (data.success && data.data && data.data.report_data) {
       const rd = data.data.report_data;
-      reportModal.total_submitted = rd.total_submitted || 0;
-      reportModal.total_students = rd.total_students || 0;
-      reportModal.knowledge_points = rd.knowledge_points || [];
-    } else {
-      reportModal.knowledge_points = [];
-      uni.showToast({ title: data.message || '报告未生成', icon: 'none' });
+      reportModal.error_points = rd.error_points || [];
+      reportModal.feedback_summary = rd.feedback_summary || '';
+      reportModal.teaching_advice = rd.teaching_advice || [];
+      reportModal.state = 'ready';
+      stopReportPolling();
+      return;
     }
+
+    if (data.status === 'generating') {
+      reportModal.state = 'generating';
+      reportPollTimer = setTimeout(() => fetchReportUntilReady(assignmentId, requestId), 1500);
+      return;
+    }
+
+    reportModal.state = 'error';
+    reportModal.errorMessage = data.message || '报告生成失败，请稍后重试';
+    stopReportPolling();
   } catch (e) {
+    if (!reportModal.show || requestId !== reportRequestId) return;
     console.error('获取报告失败:', e);
-    reportModal.knowledge_points = [];
-    uni.showToast({ title: '获取报告失败', icon: 'none' });
-  } finally {
-    reportModal.loading = false;
+    reportModal.state = 'error';
+    reportModal.errorMessage = '获取报告失败，请稍后重试';
+    stopReportPolling();
   }
+};
+
+const handleReportClick = (assignment) => {
+  stopReportPolling();
+  reportRequestId++;
+  reportModal.show = true;
+  reportModal.state = 'generating';
+  reportModal.errorMessage = '';
+  reportModal.title = assignment.title;
+  clearReportContent();
+  fetchReportUntilReady(assignment.assignment_id, reportRequestId);
 };
 
 const closeReportModal = () => {
   reportModal.show = false;
+  reportRequestId++;
+  stopReportPolling();
+};
+
+const getKnowledgeDistribution = () => {
+  return reportModal.error_points.map((ep, index) => {
+    const colors = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981'];
+    const rate = Math.max(0, Math.min(1, Number(ep.error_rate) || 0));
+    const percentage = Math.round(rate * 100);
+    return {
+      title: ep.name,
+      percentage: percentage,
+      color: colors[index % colors.length]
+    };
+  });
+};
+
+const getAdviceColor = (index) => {
+  const colors = ['#10b981', '#3b82f6', '#f59e0b'];
+  return colors[index % colors.length];
 };
 
 const handleCloseClick = async (assignmentId) => {
