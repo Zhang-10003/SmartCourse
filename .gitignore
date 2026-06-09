@@ -17,3 +17,4 @@ backend/environment.yml
 backend/core/rag/chroma_db/
 backend/assets/
 outputs
+tools/
