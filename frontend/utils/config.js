@@ -1,6 +1,6 @@
 const CONFIG = {
-	baseUrl: 'http://192.168.17.144:8000',
-    shareUrl: 'http://192.168.17.144:8000/share',
+	baseUrl: 'http://127.0.0.1:8000',
+    shareUrl: 'http://127.0.0.1:8000/share',
     appShareUrl: 'smartcourse://share',
 
     timeout: 30000
